@@ -22,7 +22,8 @@ const char* title = "Goolets";
 bool fullscreen = false;
 
 // Shaders
-GLuint shaderProgram;
+GLuint screenRenderingShader;
+GLuint densityMapShader;
 extern const GLchar* screenVertexShaderSource;
 extern const GLchar* screenFragmentShaderSource;
 #include "screen.vert"
@@ -81,13 +82,15 @@ int main() {
     glEnable(GL_PROGRAM_POINT_SIZE);
 
     // Write window size to uniforms
-    GLuint windowWidthLocation = glGetUniformLocation(shaderProgram, "window_width");
+    GLuint windowWidthLocation = glGetUniformLocation(screenRenderingShader, "window_width");
     glUniform1f(windowWidthLocation, width);
-    GLuint windowHeightLocation = glGetUniformLocation(shaderProgram, "window_height");
+    GLuint windowHeightLocation = glGetUniformLocation(screenRenderingShader, "window_height");
     glUniform1f(windowHeightLocation, height);
 
-    GLuint textures[1];
-    glGenTextures(1, textures);
+    GLuint textures[2];
+    glGenTextures(2, textures);
+
+    // Texture 1
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, textures[0]);
 
@@ -116,6 +119,30 @@ int main() {
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, image_width, image_height, 0, GL_RGB, GL_FLOAT, &image[0]);
     // glBindImageTexture(0, textures[1], 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F); // opengl > 4.0 ; dont know what this does <shrug>
 
+    // // Texture 2
+    // glActiveTexture(GL_TEXTURE1);
+    // glBindTexture(GL_TEXTURE_2D, textures[1]);
+
+    // GLuint fbo;
+    // glGenFramebuffers(1, &fbo);
+    // glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, image_width, image_height, 0, GL_RGB, GL_FLOAT, NULL);
+
+    // glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textures[1], 0);
+
+    // GLenum fbo_status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    // std::cout << std::hex << fbo_status << std::endl;
+    // if(fbo_status != GL_FRAMEBUFFER_COMPLETE) {
+    //     fprintf(stderr, "ERROR::FRAMEBUFFER:: Framebuffer is not complete!\n");
+    //     exit(EXIT_FAILURE);
+    // }
+
+    // glUseProgram(screenRenderingShader);
+    // glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
     // Physics timing preamble
     float exp_average_physics_time = 0.0f;
     float alpha_physics_time = 0.05;
@@ -126,6 +153,8 @@ int main() {
 
         // Physics timing begin
         float physics_time_start = glfwGetTime();
+
+        // Use screen renderer and render to teh screen frame buffer
 
         auto first = positions.begin();
         auto last = positions.end();
@@ -218,9 +247,9 @@ void window_setup() {
         height = new_height;
 
         // Tell shader that the window has a new size
-        GLuint windowWidthLocation = glGetUniformLocation(shaderProgram, "window_width");
+        GLuint windowWidthLocation = glGetUniformLocation(screenRenderingShader, "window_width");
         glUniform1f(windowWidthLocation, width);
-        GLuint windowHeightLocation = glGetUniformLocation(shaderProgram, "window_height");
+        GLuint windowHeightLocation = glGetUniformLocation(screenRenderingShader, "window_height");
         glUniform1f(windowHeightLocation, height);
     });
 
@@ -251,6 +280,8 @@ void window_setup() {
 #define INFOLOG_LEN 512
 
 void shader_setup() {
+    
+    // Screen rendering shader
     GLint vertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertexShader, 1, &screenVertexShaderSource, NULL);
     glCompileShader(vertexShader);
@@ -273,17 +304,25 @@ void shader_setup() {
         exit(EXIT_FAILURE);
     }
     /* Link shaders */
-    shaderProgram = glCreateProgram();
-    glAttachShader(shaderProgram, vertexShader);
-    glAttachShader(shaderProgram, fragmentShader);
-    glLinkProgram(shaderProgram);
-    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+    screenRenderingShader = glCreateProgram();
+    glAttachShader(screenRenderingShader, vertexShader);
+    glAttachShader(screenRenderingShader, fragmentShader);
+    glLinkProgram(screenRenderingShader);
+    glGetProgramiv(screenRenderingShader, GL_LINK_STATUS, &success);
     if (!success) {
-        glGetProgramInfoLog(shaderProgram, INFOLOG_LEN, NULL, infoLog);
+        glGetProgramInfoLog(screenRenderingShader, INFOLOG_LEN, NULL, infoLog);
         printf("ERROR::SHADER::PROGRAM::LINKING_FAILED\n%s\n", infoLog);
         exit(EXIT_FAILURE);
     }
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
-    glUseProgram(shaderProgram);
+    glUseProgram(screenRenderingShader);
 }
+
+// void updateShaderWidthHeightUniforms(int new_width, int new_height) {
+//     // Tell shader that the window has a new size
+//     GLuint windowWidthLocation = glGetUniformLocation(screenRenderingShader, "window_width");
+//     glUniform1f(windowWidthLocation, new_width);
+//     GLuint windowHeightLocation = glGetUniformLocation(screenRenderingShader, "window_height");
+//     glUniform1f(windowHeightLocation, new_height);
+// }
