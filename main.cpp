@@ -23,9 +23,9 @@ bool fullscreen = false;
 
 // Shaders
 GLuint shaderProgram;
-const GLchar* vertexShaderSource = 
+extern const GLchar* vertexShaderSource;
+extern const GLchar* fragmentShaderSource;
 #include "shader.vert"
-const GLchar* fragmentShaderSource = 
 #include "shader.frag"
 
 // Particles
