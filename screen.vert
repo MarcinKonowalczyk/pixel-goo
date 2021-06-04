@@ -1,7 +1,7 @@
 // Vertex shader source
 // This file will be #included in the source at compile time
 // The actuall rource must therefore be in an R-string
-const GLchar* vertexShaderSource = R"(
+const GLchar* screenVertexShaderSource = R"(
 #version 330 core
 layout (location = 0) in vec3 position;
 // layout (location = 1) in vec3 color;

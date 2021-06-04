@@ -1,7 +1,7 @@
 // Fragment shader source
 // This file will be #included in the source at compile time
 // The actuall rource must therefore be in an R-string
-const GLchar* fragmentShaderSource = R"(
+const GLchar* screenFragmentShaderSource = R"(
 #version 330 core
 // in vec3 outColor;
 out vec4 color;

@@ -23,10 +23,10 @@ bool fullscreen = false;
 
 // Shaders
 GLuint shaderProgram;
-extern const GLchar* vertexShaderSource;
-extern const GLchar* fragmentShaderSource;
-#include "shader.vert"
-#include "shader.frag"
+extern const GLchar* screenVertexShaderSource;
+extern const GLchar* screenFragmentShaderSource;
+#include "screen.vert"
+#include "screen.frag"
 
 // Particles
 const int P = 2000;
@@ -252,7 +252,7 @@ void window_setup() {
 
 void shader_setup() {
     GLint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
+    glShaderSource(vertexShader, 1, &screenVertexShaderSource, NULL);
     glCompileShader(vertexShader);
     GLint success;
     GLchar infoLog[INFOLOG_LEN];
@@ -264,7 +264,7 @@ void shader_setup() {
     }
     /* Fragment shader */
     GLint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
+    glShaderSource(fragmentShader, 1, &screenFragmentShaderSource, NULL);
     glCompileShader(fragmentShader);
     glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
     if (!success) {
