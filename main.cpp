@@ -33,7 +33,7 @@ extern const GLchar* densityFragmentShaderSource;
 #include "density.frag"
 
 // Particles
-const int P = 10;
+const int P = 10000;
 std::array<glm::vec3, P> positions;
 
 void window_setup();
@@ -59,11 +59,8 @@ int main() {
     shader_setup();
 
     std::array<glm::vec2, P> vertices;
-    // int i = 0;
     for (glm::vec2& vertex : vertices) {
-        // vertex = glm::vec2(0+i,0+i);
         vertex = glm::vec2(0,0);
-        // i += 10;
     }
 
     GLuint vao;
@@ -98,19 +95,13 @@ int main() {
     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     float margin = glm::min(width,height)*0.05;
-    // for (glm::vec3& position : positions) {
-    //     // 
-    //     position = glm::vec3( glm::gaussRand<float>(0.5, 0.5), glm::gaussRand<float>(0.5, 0.5) , 0.0 );
-    //     position = glm::clamp(position, 0.0f,1.0f);
-    //     // position = glm::vec2( glm::linearRand<float>(0, 1), glm::linearRand<float>(0, 1) );
-    //     position *= ( glm::vec3( width, height, 1.0 ) - 2*margin );
-    //     position += margin;
-    // }
-    int i = 0;
     for (glm::vec3& position : positions) {
         // 
-        position = glm::vec3(0+i, 0+i, 0.0);
-        i += 40;
+        position = glm::vec3( glm::gaussRand<float>(0.5, 0.5), glm::gaussRand<float>(0.5, 0.5) , 0.0 );
+        position = glm::clamp(position, 0.0f,1.0f);
+        // position = glm::vec2( glm::linearRand<float>(0, 1), glm::linearRand<float>(0, 1) );
+        position *= ( glm::vec3( width, height, 1.0 ) - 2*margin );
+        position += margin;
     }
 
     glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB32F, P, 0, GL_RGB, GL_FLOAT, positions.data());
@@ -145,7 +136,10 @@ int main() {
     glUniform1i(location, densityMapTextureIndex);
     location = glGetUniformLocation(screenRenderingShader, "position_map");
     glUniform1i(location, positionMapTextureIndex);
-
+    glUseProgram(densityMapShader);
+    location = glGetUniformLocation(densityMapShader, "position_map");
+    glUniform1i(location, positionMapTextureIndex);
+    
     // Physics timing preamble
     float exp_average_physics_time = 0.0f;
     float alpha_physics_time = 0.05;
@@ -155,20 +149,11 @@ int main() {
         // Physics timing begin
         float physics_time_start = glfwGetTime();
 
-        // auto first = positions.begin();
-        // auto last = positions.end();
-        // for(; first != last; ++first) {
-        //     // for(auto next = std::next(first); next != last; ++next) {
-        //     //     glm::length(*next-*first);
-        //     // }
-        //     *first += glm::diskRand(3.0);
-        // }
-
-        // for (glm::vec3& position : positions) {
-        //     position += glm::diskRand(3.0);
-        // }
-        
-        // glBufferData(GL_ARRAY_BUFFER, sizeof(positions), positions.data(), GL_DYNAMIC_DRAW);
+        for (glm::vec3& position : positions) {
+            position += glm::vec3(glm::diskRand(3.0),0.0);
+        }
+        glActiveTexture(GL_TEXTURE0 + positionMapTextureIndex);
+        glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB32F, P, 0, GL_RGB, GL_FLOAT, positions.data());
 
         // Physics timing end
         float delta_physics_time = (glfwGetTime()-physics_time_start)*1000;
@@ -180,15 +165,15 @@ int main() {
         std::cout << "physics time: " << exp_average_physics_time << "ms" << std::endl;
 
         // Density map pass
-        // glUseProgram(densityMapShader);
-        // glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-        // glClear(GL_COLOR_BUFFER_BIT);
+        glUseProgram(densityMapShader);
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        glClear(GL_COLOR_BUFFER_BIT);
 
         // glDrawArrays(GL_POINTS, 0, P);
 
         // Screen rendering pass
-        // glUseProgram(densityMapShader);
-        glUseProgram(screenRenderingShader);
+        glUseProgram(densityMapShader);
+        // glUseProgram(screenRenderingShader);
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glClear(GL_COLOR_BUFFER_BIT);
@@ -227,10 +212,10 @@ void window_setup() {
 
     if (!glfwInit()) { exit(EXIT_FAILURE); }
 
-    // glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    // glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    // glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    // glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
 #ifdef __APPLE__
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
