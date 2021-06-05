@@ -34,7 +34,7 @@ extern const GLchar* densityFragmentShaderSource;
 
 // Particles
 const int P = 10000;
-std::array<glm::vec3, P> positions;
+std::array<glm::vec2, P> positions;
 
 void window_setup();
 void shader_setup();
@@ -76,51 +76,25 @@ int main() {
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
 
     glEnable(GL_PROGRAM_POINT_SIZE);
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    // Write window size to uniforms
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     updateShaderWidthHeightUniforms(width, height);
 
     GLuint textures[2];
     glGenTextures(2, textures);
 
-    // Texture 1
-    int positionMapTextureIndex = 0;
-    glActiveTexture(GL_TEXTURE0 + positionMapTextureIndex);
-    glBindTexture(GL_TEXTURE_1D, textures[0]);
-
-    // set texture parameters
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    float margin = glm::min(width,height)*0.05;
-    for (glm::vec3& position : positions) {
-        // 
-        position = glm::vec3( glm::gaussRand<float>(0.5, 0.5), glm::gaussRand<float>(0.5, 0.5) , 0.0 );
-        position = glm::clamp(position, 0.0f,1.0f);
-        // position = glm::vec2( glm::linearRand<float>(0, 1), glm::linearRand<float>(0, 1) );
-        position *= ( glm::vec3( width, height, 1.0 ) - 2*margin );
-        position += margin;
-    }
-
-    glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB32F, P, 0, GL_RGB, GL_FLOAT, positions.data());
-
-
-    // Texture 2
-    int densityMapTextureIndex = 1;
+    // Texture 1 - density map
+    int densityMapTextureIndex = 0;
     glActiveTexture(GL_TEXTURE0 + densityMapTextureIndex);
     glBindTexture(GL_TEXTURE_2D, textures[1]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, width, height, 0, GL_RGB, GL_FLOAT, NULL);
 
+    // Bind the density map to a frame buffer
     GLuint fbo;
     glGenFramebuffers(1, &fbo);
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, width, height, 0, GL_RGB, GL_FLOAT, NULL);
 
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textures[1], 0);
 
@@ -130,6 +104,26 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
+    // Texture 2
+    int positionMapTextureIndex = 1;
+    glActiveTexture(GL_TEXTURE0 + positionMapTextureIndex);
+    glBindTexture(GL_TEXTURE_1D, textures[0]);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    float margin = glm::min(width,height)*0.05;
+    for (glm::vec2& position : positions) {
+        // 
+        position = glm::vec2( glm::gaussRand<float>(0.5, 0.5), glm::gaussRand<float>(0.5, 0.5) );
+        position = glm::clamp(position, 0.0f,1.0f);
+        // position = glm::vec2( glm::linearRand<float>(0, 1), glm::linearRand<float>(0, 1) );
+        position *= ( glm::vec2( width, height ) - 2*margin );
+        position += margin;
+    }
+
+    glTexImage1D(GL_TEXTURE_1D, 0, GL_RG32F, P, 0, GL_RG, GL_FLOAT, positions.data());
+
+    // Tell shader about the positions of the textures
     GLuint location;
     glUseProgram(screenRenderingShader);
     location = glGetUniformLocation(screenRenderingShader, "density_map");
@@ -150,11 +144,11 @@ int main() {
         // Physics timing begin
         float physics_time_start = glfwGetTime();
 
-        for (glm::vec3& position : positions) {
-            position += glm::vec3(glm::diskRand(3.0),0.0);
+        for (glm::vec2& position : positions) {
+            position += glm::diskRand(3.0);
         }
         glActiveTexture(GL_TEXTURE0 + positionMapTextureIndex);
-        glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB32F, P, 0, GL_RGB, GL_FLOAT, positions.data());
+        glTexImage1D(GL_TEXTURE_1D, 0, GL_RG32F, P, 0, GL_RG, GL_FLOAT, positions.data());
 
         // Physics timing end
         float delta_physics_time = (glfwGetTime()-physics_time_start)*1000;
