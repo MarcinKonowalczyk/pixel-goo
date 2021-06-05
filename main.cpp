@@ -94,28 +94,14 @@ int main() {
     glBindTexture(GL_TEXTURE_2D, textures[0]);
 
     // set texture parameters
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-    int image_width = width*2;
-    int image_height = height*2;
-    std::vector<float> image(3*image_width*image_height);
-    for(int j = 0; j<image_height;++j) {
-        for(int i = 0;i<image_width;++i) {
-            size_t index = j*image_width + i;
-            float noise_point = glm::clamp( glm::perlin(0.006f*glm::vec2(i,j+150)), 0.0f, 1.0f);
-            image[3*index + 0] = i/(float)image_width; //glm::clamp( glm::perlin(0.006f*glm::vec2(i+0,j)), 0.0f, 1.0f);
-            image[3*index + 1] = j/(float)image_height; //glm::clamp( glm::perlin(0.006f*glm::vec2(i+100,j)), 0.0f, 1.0f);
-            image[3*index + 2] = 1.0f; // noise_point
-        }
-    }
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, image_width, image_height, 0, GL_RGB, GL_FLOAT, &image[0]);
-
+    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
     // Texture 2
-    glActiveTexture(GL_TEXTURE1);
+    int densityMapTextureIndex = 1;
+    glActiveTexture(GL_TEXTURE0 + densityMapTextureIndex);
     glBindTexture(GL_TEXTURE_2D, textures[1]);
 
     GLuint fbo;
@@ -140,7 +126,7 @@ int main() {
     GLuint location = glGetUniformLocation(screenRenderingShader, "density_map");
     std::cout << "location: " << std::dec << location << std::endl;
     glUseProgram(screenRenderingShader);
-    glUniform1i(location, 1);
+    glUniform1i(location, densityMapTextureIndex);
 
     // Physics timing preamble
     float exp_average_physics_time = 0.0f;
@@ -283,7 +269,7 @@ void window_setup() {
 
 #define INFOLOG_LEN 512
 
-void compileAndAttachShader(const GLchar* &shaderSource, const GLuint shaderTypeEnum, GLuint program) {
+void compileAndAttachShader(const GLchar* shaderSource, const GLuint shaderTypeEnum, GLuint program) {
     GLint shader = glCreateShader(shaderTypeEnum);
     glShaderSource(shader, 1, &shaderSource, NULL);
     glCompileShader(shader);
