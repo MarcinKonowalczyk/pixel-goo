@@ -33,8 +33,8 @@ extern const GLchar* densityFragmentShaderSource;
 #include "density.frag"
 
 // Particles
-const int P = 2000;
-std::array<glm::vec2, P> positions;
+const int P = 10;
+std::array<glm::vec3, P> positions;
 
 void window_setup();
 void shader_setup();
@@ -58,13 +58,11 @@ int main() {
     window_setup();
     shader_setup();
 
-    float margin = glm::min(width,height)*0.05;
-    for (glm::vec2& position : positions) {
-        position = glm::vec2( glm::gaussRand<float>(0.5, 0.5), glm::gaussRand<float>(0.5, 0.5) );
-        position = glm::clamp(position,0.0f,1.0f);
-        // position = glm::vec2( glm::linearRand<float>(0, 1), glm::linearRand<float>(0, 1) );
-        position *= ( glm::vec2( width, height ) - 2*margin );
-        position += margin;
+    std::array<glm::vec2, P> vertices;
+    int i = 0;
+    for (glm::vec2& vertex : vertices) {
+        vertex = glm::vec2(0+i,0+i);
+        i += 10;
     }
 
     GLuint vao;
@@ -75,7 +73,7 @@ int main() {
     glGenBuffers(1, buf);
     
     glBindBuffer(GL_ARRAY_BUFFER, buf[0]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(positions), positions.data(), GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices.data(), GL_DYNAMIC_DRAW);
     glEnableVertexAttribArray(0); 
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
 
@@ -90,14 +88,40 @@ int main() {
     glGenTextures(2, textures);
 
     // Texture 1
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, textures[0]);
+    int positionMapTextureIndex = 0;
+    glActiveTexture(GL_TEXTURE0 + positionMapTextureIndex);
+    glBindTexture(GL_TEXTURE_1D, textures[0]);
 
     // set texture parameters
-    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    float margin = glm::min(width,height)*0.05;
+    for (glm::vec3& position : positions) {
+        // 
+        position = glm::vec3( glm::gaussRand<float>(0.5, 0.5), glm::gaussRand<float>(0.5, 0.5) , 0.0 );
+        position = glm::clamp(position, 0.0f,1.0f);
+        // position = glm::vec2( glm::linearRand<float>(0, 1), glm::linearRand<float>(0, 1) );
+        position *= ( glm::vec3( width, height, 1.0 ) - 2*margin );
+        position += margin;
+    }
+
+    // int image_width = width*2;
+    // int image_height = height*2;
+    // std::vector<float> image(3*image_width*image_height);
+    // for(int j = 0; j<image_height;++j) {
+    //     for(int i = 0;i<image_width;++i) {
+    //         size_t index = j*image_width + i;
+    //         float noise_point = glm::clamp( glm::perlin(0.006f*glm::vec2(i,j+150)), 0.0f, 1.0f);
+    //         image[3*index + 0] = i/(float)image_width; //glm::clamp( glm::perlin(0.006f*glm::vec2(i+0,j)), 0.0f, 1.0f);
+    //         image[3*index + 1] = j/(float)image_height; //glm::clamp( glm::perlin(0.006f*glm::vec2(i+100,j)), 0.0f, 1.0f);
+    //         image[3*index + 2] = 1.0f; // noise_point
+    //     }
+    // }
+    // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, image_width, image_height, 0, GL_RGB, GL_FLOAT, &image[0]);
+
+    glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB32F, P, 0, GL_RGB, GL_FLOAT, positions.data());
+
 
     // Texture 2
     int densityMapTextureIndex = 1;
@@ -123,10 +147,13 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    GLuint location = glGetUniformLocation(screenRenderingShader, "density_map");
-    std::cout << "location: " << std::dec << location << std::endl;
+
+    GLuint location;
     glUseProgram(screenRenderingShader);
+    location = glGetUniformLocation(screenRenderingShader, "density_map");
     glUniform1i(location, densityMapTextureIndex);
+    location = glGetUniformLocation(screenRenderingShader, "position_map");
+    glUniform1i(location, positionMapTextureIndex);
 
     // Physics timing preamble
     float exp_average_physics_time = 0.0f;
@@ -137,16 +164,16 @@ int main() {
         // Physics timing begin
         float physics_time_start = glfwGetTime();
 
-        auto first = positions.begin();
-        auto last = positions.end();
-        for(; first != last; ++first) {
-            // for(auto next = std::next(first); next != last; ++next) {
-            //     glm::length(*next-*first);
-            // }
-            *first += glm::diskRand(3.0);
-        }
+        // auto first = positions.begin();
+        // auto last = positions.end();
+        // for(; first != last; ++first) {
+        //     // for(auto next = std::next(first); next != last; ++next) {
+        //     //     glm::length(*next-*first);
+        //     // }
+        //     *first += glm::diskRand(3.0);
+        // }
         
-        glBufferData(GL_ARRAY_BUFFER, sizeof(positions), positions.data(), GL_DYNAMIC_DRAW);
+        // glBufferData(GL_ARRAY_BUFFER, sizeof(positions), positions.data(), GL_DYNAMIC_DRAW);
 
         // Physics timing end
         float delta_physics_time = (glfwGetTime()-physics_time_start)*1000;
@@ -158,11 +185,11 @@ int main() {
         std::cout << "physics time: " << exp_average_physics_time << "ms" << std::endl;
 
         // Density map pass
-        glUseProgram(densityMapShader);
-        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-        glClear(GL_COLOR_BUFFER_BIT);
+        // glUseProgram(densityMapShader);
+        // glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        // glClear(GL_COLOR_BUFFER_BIT);
 
-        glDrawArrays(GL_POINTS, 0, P);
+        // glDrawArrays(GL_POINTS, 0, P);
 
         // Screen rendering pass
         // glUseProgram(densityMapShader);
@@ -278,7 +305,7 @@ void compileAndAttachShader(const GLchar* shaderSource, const GLuint shaderTypeE
     if (!success) {
         GLchar infoLog[INFOLOG_LEN];
         glGetShaderInfoLog(shader, INFOLOG_LEN, NULL, infoLog);
-        printf("ERROR::SHADER::VERTEX::COMPILATION_FAILED\n%s\n", infoLog);
+        printf("ERROR::SHADER::COMPILATION_FAILED\n%s\n", infoLog);
         exit(EXIT_FAILURE);
     }
     glAttachShader(program, shader);
