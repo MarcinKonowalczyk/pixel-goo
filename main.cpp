@@ -59,10 +59,11 @@ int main() {
     shader_setup();
 
     std::array<glm::vec2, P> vertices;
-    int i = 0;
+    // int i = 0;
     for (glm::vec2& vertex : vertices) {
-        vertex = glm::vec2(0+i,0+i);
-        i += 10;
+        // vertex = glm::vec2(0+i,0+i);
+        vertex = glm::vec2(0,0);
+        // i += 10;
     }
 
     GLuint vao;
@@ -97,28 +98,20 @@ int main() {
     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     float margin = glm::min(width,height)*0.05;
+    // for (glm::vec3& position : positions) {
+    //     // 
+    //     position = glm::vec3( glm::gaussRand<float>(0.5, 0.5), glm::gaussRand<float>(0.5, 0.5) , 0.0 );
+    //     position = glm::clamp(position, 0.0f,1.0f);
+    //     // position = glm::vec2( glm::linearRand<float>(0, 1), glm::linearRand<float>(0, 1) );
+    //     position *= ( glm::vec3( width, height, 1.0 ) - 2*margin );
+    //     position += margin;
+    // }
+    int i = 0;
     for (glm::vec3& position : positions) {
         // 
-        position = glm::vec3( glm::gaussRand<float>(0.5, 0.5), glm::gaussRand<float>(0.5, 0.5) , 0.0 );
-        position = glm::clamp(position, 0.0f,1.0f);
-        // position = glm::vec2( glm::linearRand<float>(0, 1), glm::linearRand<float>(0, 1) );
-        position *= ( glm::vec3( width, height, 1.0 ) - 2*margin );
-        position += margin;
+        position = glm::vec3(0+i, 0+i, 0.0);
+        i += 40;
     }
-
-    // int image_width = width*2;
-    // int image_height = height*2;
-    // std::vector<float> image(3*image_width*image_height);
-    // for(int j = 0; j<image_height;++j) {
-    //     for(int i = 0;i<image_width;++i) {
-    //         size_t index = j*image_width + i;
-    //         float noise_point = glm::clamp( glm::perlin(0.006f*glm::vec2(i,j+150)), 0.0f, 1.0f);
-    //         image[3*index + 0] = i/(float)image_width; //glm::clamp( glm::perlin(0.006f*glm::vec2(i+0,j)), 0.0f, 1.0f);
-    //         image[3*index + 1] = j/(float)image_height; //glm::clamp( glm::perlin(0.006f*glm::vec2(i+100,j)), 0.0f, 1.0f);
-    //         image[3*index + 2] = 1.0f; // noise_point
-    //     }
-    // }
-    // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, image_width, image_height, 0, GL_RGB, GL_FLOAT, &image[0]);
 
     glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB32F, P, 0, GL_RGB, GL_FLOAT, positions.data());
 
@@ -141,12 +134,10 @@ int main() {
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textures[1], 0);
 
     GLenum fbo_status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-    std::cout << std::hex << fbo_status << std::endl;
     if(fbo_status != GL_FRAMEBUFFER_COMPLETE) {
         fprintf(stderr, "ERROR::FRAMEBUFFER:: Framebuffer is not complete!\n");
         exit(EXIT_FAILURE);
     }
-
 
     GLuint location;
     glUseProgram(screenRenderingShader);
@@ -171,6 +162,10 @@ int main() {
         //     //     glm::length(*next-*first);
         //     // }
         //     *first += glm::diskRand(3.0);
+        // }
+
+        // for (glm::vec3& position : positions) {
+        //     position += glm::diskRand(3.0);
         // }
         
         // glBufferData(GL_ARRAY_BUFFER, sizeof(positions), positions.data(), GL_DYNAMIC_DRAW);
