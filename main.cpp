@@ -1,13 +1,10 @@
-#include <string>
-#include <fstream>
-#include <sstream>
 #include <iostream>
 
 #include <array>
 #include <vector>
 #include <utility>
 
-#include <glad/glad.h> // OpenGL functions
+#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
 #include <glm/vec2.hpp>
@@ -21,13 +18,15 @@ int height = 600;
 const char* title = "Goolets";
 bool fullscreen = false;
 
-// Shaders
+// Screen shader
 GLuint screenRenderingShader;
-GLuint densityMapShader;
 extern const GLchar* screenVertexShaderSource;
 extern const GLchar* screenFragmentShaderSource;
 #include "screen.vert"
 #include "screen.frag"
+
+// Density Map shader
+GLuint densityMapShader;
 extern const GLchar* densityVertexShaderSource;
 extern const GLchar* densityFragmentShaderSource;
 #include "density.vert"
@@ -36,7 +35,6 @@ extern const GLchar* densityFragmentShaderSource;
 // Particles
 const int P = 2000;
 std::array<glm::vec2, P> positions;
-// std::array<float, P> positions;
 
 void window_setup();
 void shader_setup();
@@ -60,12 +58,13 @@ int main() {
     window_setup();
     shader_setup();
 
-    float margin = glm::min(width,height)*0.2;
+    float margin = glm::min(width,height)*0.05;
     for (glm::vec2& position : positions) {
-        position = glm::vec2(
-            glm::linearRand<float>(0+margin, (float)width-margin),
-            glm::linearRand<float>(0+margin, (float)height-margin)
-        );
+        position = glm::vec2( glm::gaussRand<float>(0.5, 0.5), glm::gaussRand<float>(0.5, 0.5) );
+        position = glm::clamp(position,0.0f,1.0f);
+        // position = glm::vec2( glm::linearRand<float>(0, 1), glm::linearRand<float>(0, 1) );
+        position *= ( glm::vec2( width, height ) - 2*margin );
+        position += margin;
     }
 
     GLuint vao;
@@ -80,12 +79,9 @@ int main() {
     glEnableVertexAttribArray(0); 
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
 
-    // glBindBuffer(GL_ARRAY_BUFFER, buf[1]);
-    // glBufferData(GL_ARRAY_BUFFER, sizeof(colors), colors, GL_STATIC_DRAW);
-    // glEnableVertexAttribArray(1); 
-    // glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0);
-
     glEnable(GL_PROGRAM_POINT_SIZE);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     // Write window size to uniforms
     updateShaderWidthHeightUniforms(width, height);
@@ -100,8 +96,6 @@ int main() {
     // set texture parameters
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
@@ -114,12 +108,11 @@ int main() {
             float noise_point = glm::clamp( glm::perlin(0.006f*glm::vec2(i,j+150)), 0.0f, 1.0f);
             image[3*index + 0] = i/(float)image_width; //glm::clamp( glm::perlin(0.006f*glm::vec2(i+0,j)), 0.0f, 1.0f);
             image[3*index + 1] = j/(float)image_height; //glm::clamp( glm::perlin(0.006f*glm::vec2(i+100,j)), 0.0f, 1.0f);
-            image[3*index + 2] = noise_point;
+            image[3*index + 2] = 1.0f; // noise_point
         }
     }
-    
-    // set texture content
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, image_width, image_height, 0, GL_RGB, GL_FLOAT, &image[0]);
+
 
     // Texture 2
     glActiveTexture(GL_TEXTURE1);
@@ -131,7 +124,9 @@ int main() {
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, image_width, image_height, 0, GL_RGB, GL_FLOAT, NULL);
+    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, width, height, 0, GL_RGB, GL_FLOAT, NULL);
 
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textures[1], 0);
 
@@ -142,23 +137,19 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
+    GLuint location = glGetUniformLocation(screenRenderingShader, "density_map");
+    std::cout << "location: " << std::dec << location << std::endl;
+    glUseProgram(screenRenderingShader);
+    glUniform1i(location, 1);
+
     // Physics timing preamble
     float exp_average_physics_time = 0.0f;
     float alpha_physics_time = 0.05;
 
     while (!glfwWindowShouldClose(window)) {
         
-        glClear(GL_COLOR_BUFFER_BIT);
-
         // Physics timing begin
         float physics_time_start = glfwGetTime();
-
-        // Use screen renderer and render to the screen frame buffer
-
-        // Screen rendering pass
-        glUseProgram(screenRenderingShader);
-        // glUseProgram(densityMapShader);
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         auto first = positions.begin();
         auto last = positions.end();
@@ -166,25 +157,39 @@ int main() {
             // for(auto next = std::next(first); next != last; ++next) {
             //     glm::length(*next-*first);
             // }
-            *first += glm::diskRand(1.0);
+            *first += glm::diskRand(3.0);
         }
-
-        // set texture content
-        // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, image_width, image_height, 0, GL_RGB, GL_FLOAT, &image[0]);
+        
+        glBufferData(GL_ARRAY_BUFFER, sizeof(positions), positions.data(), GL_DYNAMIC_DRAW);
 
         // Physics timing end
         float delta_physics_time = (glfwGetTime()-physics_time_start)*1000;
         exp_average_physics_time == 0.0f
             ? exp_average_physics_time = delta_physics_time
             : exp_average_physics_time = alpha_physics_time*delta_physics_time + (1-alpha_physics_time)*exp_average_physics_time;
+        
+        
         std::cout << "physics time: " << exp_average_physics_time << "ms" << std::endl;
 
-        glBufferData(GL_ARRAY_BUFFER, sizeof(positions), positions.data(), GL_DYNAMIC_DRAW);
+        // Density map pass
+        glUseProgram(densityMapShader);
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        glClear(GL_COLOR_BUFFER_BIT);
 
         glDrawArrays(GL_POINTS, 0, P);
+
+        // Screen rendering pass
+        // glUseProgram(densityMapShader);
+        glUseProgram(screenRenderingShader);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        glDrawArrays(GL_POINTS, 0, P);
+
+        // Swap draw and screen buffer
         glfwSwapBuffers(window);
         glfwPollEvents();
-
     }
 
     // Clean up
