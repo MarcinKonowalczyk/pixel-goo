@@ -136,6 +136,7 @@ int main() {
     glUniform1i(location, densityMapTextureIndex);
     location = glGetUniformLocation(screenRenderingShader, "position_map");
     glUniform1i(location, positionMapTextureIndex);
+
     glUseProgram(densityMapShader);
     location = glGetUniformLocation(densityMapShader, "position_map");
     glUniform1i(location, positionMapTextureIndex);
@@ -160,24 +161,19 @@ int main() {
         exp_average_physics_time == 0.0f
             ? exp_average_physics_time = delta_physics_time
             : exp_average_physics_time = alpha_physics_time*delta_physics_time + (1-alpha_physics_time)*exp_average_physics_time;
-        
-        
         std::cout << "physics time: " << exp_average_physics_time << "ms" << std::endl;
 
         // Density map pass
         glUseProgram(densityMapShader);
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
         glClear(GL_COLOR_BUFFER_BIT);
-
-        // glDrawArrays(GL_POINTS, 0, P);
+        glDrawArrays(GL_POINTS, 0, P);
 
         // Screen rendering pass
-        glUseProgram(densityMapShader);
-        // glUseProgram(screenRenderingShader);
-
+        // glUseProgram(densityMapShader);
+        glUseProgram(screenRenderingShader);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glClear(GL_COLOR_BUFFER_BIT);
-
         glDrawArrays(GL_POINTS, 0, P);
 
         // Swap draw and screen buffer
