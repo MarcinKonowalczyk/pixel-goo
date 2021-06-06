@@ -40,7 +40,7 @@ extern const GLchar* positionFragmentShaderSource;
 #include "position.frag"
 
 // Particles
-const int P = 3000;
+const int P = 16384;
 std::array<glm::vec2, P> positions;
 
 void window_setup();
@@ -57,7 +57,7 @@ void updateShaderWidthHeightUniforms(int width, int height);
 //                                        
 //========================================
 
-void DEBUG_printPositionTexture(const char* message, const int N = 10) {
+void DEBUG_printPositionTexture(const char* message, const int N = 3, const int M = 3) {
     float pixels[2*P];
     std::cout << message << ":" << std::endl;
     glGetTexImage(GL_TEXTURE_1D, 0, GL_RG, GL_FLOAT, &pixels);
@@ -65,6 +65,10 @@ void DEBUG_printPositionTexture(const char* message, const int N = 10) {
         std::cout << " " << i/2 << ": " << pixels[i] << " " << pixels[i+1] << std::endl;
     }
     std::cout << "..." << std::endl;
+    for (int i = 2*P-(2*M); i < 2*P; i += 2) {
+        std::cout << " " << 2*P-(2*P-i)/2 << ": " << pixels[i] << " " << pixels[i+1] << std::endl;
+    }
+    std::cout << " " << std::endl;
 }
 
 int main() {
@@ -112,6 +116,13 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
+    GLint max_renderbuffer_size;
+    glGetIntegerv(GL_MAX_RENDERBUFFER_SIZE, &max_renderbuffer_size); 
+    if (P > max_renderbuffer_size) {
+        std::cerr << "number of particles (" << P << ") larger than renderbuffer size (" << max_renderbuffer_size << ")" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
     // Texture 1 - Position buffer 1
     const int positionBuffer_1 = 1;
     glActiveTexture(GL_TEXTURE0 + positionBuffer_1);
@@ -128,8 +139,7 @@ int main() {
         position += margin;
     }
     glTexImage1D(GL_TEXTURE_1D, 0, GL_RG32F, P, 0, GL_RG, GL_FLOAT, positions.data());
-    DEBUG_printPositionTexture("position buffer just after binding");
-    
+
     // Bind the position map to a frame buffer
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[positionBuffer_1]);
     glFramebufferTexture1D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_1D, textures[positionBuffer_1], 0);
@@ -144,7 +154,13 @@ int main() {
     glBindTexture(GL_TEXTURE_1D, textures[positionBuffer_2]);
     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexImage1D(GL_TEXTURE_1D, 0, GL_RG32F, P, 0, GL_RG, GL_FLOAT, NULL);
+
+    std::array<glm::vec2, P> positions2;
+    for (glm::vec2& position : positions2) {
+        // position = glm::vec2( glm::linearRand<float>(0, 1), glm::linearRand<float>(0, 1) );
+        position = glm::vec2(0,0);
+    }
+    glTexImage1D(GL_TEXTURE_1D, 0, GL_RG32F, P, 0, GL_RG, GL_FLOAT, positions2.data());
 
     // Bind the velocity map to a frame buffer
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[positionBuffer_2]);
@@ -157,9 +173,31 @@ int main() {
     // Tell shader about the positions of the textures
     glUseProgram(screenRenderingShader);
     glUniform1i(glGetUniformLocation(screenRenderingShader, "density_map"), densityMapTextureIndex);
-    
+
     int currentPositionBuffer = positionBuffer_1; // Start by using buffer 1
     int otherPositionBuffer = positionBuffer_2;
+
+    // glBindTexture(GL_TEXTURE_1D, textures[currentPositionBuffer]);
+    // DEBUG_printPositionTexture("[before] currentPositionBuffer", 5);
+    glBindTexture(GL_TEXTURE_1D, textures[otherPositionBuffer]);
+    DEBUG_printPositionTexture("[before] otherPositionBuffer", 2, 10);
+
+
+    glUseProgram(positionShader);
+    glUniform1i(glGetUniformLocation(positionShader, "position_buffer"), currentPositionBuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[otherPositionBuffer]);
+    glViewport(0, 0, P, 1);
+    // glClear(GL_COLOR_BUFFER_BIT);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    // glDrawArrays(GL_POINTS, 0, P);
+
+    // glBindTexture(GL_TEXTURE_1D, textures[currentPositionBuffer]);
+    // DEBUG_printPositionTexture("[after] currentPositionBuffer", 5);
+    glBindTexture(GL_TEXTURE_1D, textures[otherPositionBuffer]);
+    DEBUG_printPositionTexture("[after] otherPositionBuffer", 2, 10);
+    
+
+    exit(1); // Stop
 
     // Physics timing preamble
     float exp_average_physics_time = 0.0f;
@@ -180,20 +218,19 @@ int main() {
 
         if (currentPositionBuffer == positionBuffer_1) {otherPositionBuffer = positionBuffer_2;} else {otherPositionBuffer = positionBuffer_1;}
 
-
         glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[currentPositionBuffer]);
-        DEBUG_printPositionTexture("current position buffer");
+        // DEBUG_printPositionTexture("current position buffer");
 
 
         glUseProgram(positionShader);
         glUniform1i(glGetUniformLocation(positionShader, "position_buffer"), currentPositionBuffer);
         glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[otherPositionBuffer]);
-        DEBUG_printPositionTexture("other position buffer before shader run");
+        // DEBUG_printPositionTexture("other position buffer before shader run");
 
         glClear(GL_COLOR_BUFFER_BIT);
         glDrawArrays(GL_POINTS, 0, P);
 
-        DEBUG_printPositionTexture("other position buffer after shader run:");
+        // DEBUG_printPositionTexture("other position buffer after shader run:");
         
 
         exit(1); // Stop
@@ -210,11 +247,12 @@ int main() {
             ? exp_average_physics_time = delta_physics_time
             : exp_average_physics_time = alpha_physics_time*delta_physics_time + (1-alpha_physics_time)*exp_average_physics_time;
         std::cout << "physics time: " << exp_average_physics_time << "ms" << std::endl;
-
+        
         // Density map pass
         glUseProgram(densityMapShader);
         glUniform1i(glGetUniformLocation(densityMapShader, "position_map"), currentPositionBuffer);
         glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[densityMapTextureIndex]);
+        glViewport(0, 0, width, height);
         glClear(GL_COLOR_BUFFER_BIT);
         glDrawArrays(GL_POINTS, 0, P);
 
@@ -223,6 +261,7 @@ int main() {
         glUseProgram(screenRenderingShader);
         glUniform1i(glGetUniformLocation(screenRenderingShader, "position_map"), currentPositionBuffer);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glViewport(0, 0, width, height);
         glClear(GL_COLOR_BUFFER_BIT);
         glDrawArrays(GL_POINTS, 0, P);
 
