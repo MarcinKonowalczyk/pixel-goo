@@ -40,7 +40,7 @@ extern const GLchar* positionFragmentShaderSource;
 #include "position.frag"
 
 // Particles
-const int P = 16384;
+const int P = 1500;
 std::array<glm::vec2, P> positions;
 
 void window_setup();
@@ -179,23 +179,22 @@ int main() {
 
     // glBindTexture(GL_TEXTURE_1D, textures[currentPositionBuffer]);
     // DEBUG_printPositionTexture("[before] currentPositionBuffer", 5);
-    glBindTexture(GL_TEXTURE_1D, textures[otherPositionBuffer]);
-    DEBUG_printPositionTexture("[before] otherPositionBuffer", 2, 10);
+    // glBindTexture(GL_TEXTURE_1D, textures[otherPositionBuffer]);
+    // DEBUG_printPositionTexture("[before] otherPositionBuffer", 2, 10);
 
-
+    // Run shader once
     glUseProgram(positionShader);
     glUniform1i(glGetUniformLocation(positionShader, "position_buffer"), currentPositionBuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[otherPositionBuffer]);
-    glViewport(0, 0, P, 1);
-    // glClear(GL_COLOR_BUFFER_BIT);
+    glViewport(0, 0, P, 1); // Change the viewport to the size of the 1D texture vector
+    glClear(GL_COLOR_BUFFER_BIT);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     // glDrawArrays(GL_POINTS, 0, P);
 
-    // glBindTexture(GL_TEXTURE_1D, textures[currentPositionBuffer]);
-    // DEBUG_printPositionTexture("[after] currentPositionBuffer", 5);
+    glBindTexture(GL_TEXTURE_1D, textures[currentPositionBuffer]);
+    DEBUG_printPositionTexture("[after] currentPositionBuffer", 2, 10);
     glBindTexture(GL_TEXTURE_1D, textures[otherPositionBuffer]);
     DEBUG_printPositionTexture("[after] otherPositionBuffer", 2, 10);
-    
 
     exit(1); // Stop
 
