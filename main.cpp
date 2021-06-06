@@ -40,7 +40,8 @@ extern const GLchar* positionFragmentShaderSource;
 #include "position.frag"
 
 // Particles
-const int P = 1500;
+// const int P = 1500;
+const int P = 16384; // <- render buffer max
 std::array<glm::vec2, P> positions;
 
 void window_setup();
@@ -177,30 +178,9 @@ int main() {
     int currentPositionBuffer = positionBuffer_1; // Start by using buffer 1
     int otherPositionBuffer = positionBuffer_2;
 
-    // glBindTexture(GL_TEXTURE_1D, textures[currentPositionBuffer]);
-    // DEBUG_printPositionTexture("[before] currentPositionBuffer", 5);
-    // glBindTexture(GL_TEXTURE_1D, textures[otherPositionBuffer]);
-    // DEBUG_printPositionTexture("[before] otherPositionBuffer", 2, 10);
-
-    // Run shader once
-    glUseProgram(positionShader);
-    glUniform1i(glGetUniformLocation(positionShader, "position_buffer"), currentPositionBuffer);
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[otherPositionBuffer]);
-    glViewport(0, 0, P, 1); // Change the viewport to the size of the 1D texture vector
-    glClear(GL_COLOR_BUFFER_BIT);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-    // glDrawArrays(GL_POINTS, 0, P);
-
-    glBindTexture(GL_TEXTURE_1D, textures[currentPositionBuffer]);
-    DEBUG_printPositionTexture("[after] currentPositionBuffer", 2, 10);
-    glBindTexture(GL_TEXTURE_1D, textures[otherPositionBuffer]);
-    DEBUG_printPositionTexture("[after] otherPositionBuffer", 2, 10);
-
-    exit(1); // Stop
-
     // Physics timing preamble
     float exp_average_physics_time = 0.0f;
-    float alpha_physics_time = 0.05;
+    float alpha_physics_time = 1.0;
 
     while (!glfwWindowShouldClose(window)) {
         
@@ -208,37 +188,25 @@ int main() {
         float physics_time_start = glfwGetTime();
         
         // TODO:
-        // glUseProgram(velocityShader);
-        // glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[positionBuffer_2]);
-        // glClear(GL_COLOR_BUFFER_BIT);
-        // glDrawArrays(GL_POINTS, 0, P);
+        // velocity double buffer
 
         // WIP:
-
         if (currentPositionBuffer == positionBuffer_1) {otherPositionBuffer = positionBuffer_2;} else {otherPositionBuffer = positionBuffer_1;}
-
-        glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[currentPositionBuffer]);
-        // DEBUG_printPositionTexture("current position buffer");
-
 
         glUseProgram(positionShader);
         glUniform1i(glGetUniformLocation(positionShader, "position_buffer"), currentPositionBuffer);
         glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[otherPositionBuffer]);
-        // DEBUG_printPositionTexture("other position buffer before shader run");
+        glViewport(0, 0, P, 1); // Change the viewport to the size of the 1D texture vector
+        // glClear(GL_COLOR_BUFFER_BIT);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-        glClear(GL_COLOR_BUFFER_BIT);
-        glDrawArrays(GL_POINTS, 0, P);
-
-        // DEBUG_printPositionTexture("other position buffer after shader run:");
-        
-
-        exit(1); // Stop
-
-        // for (glm::vec2& position : positions) {
-        //     position += glm::diskRand(3.0);
-        // }
-        // glActiveTexture(GL_TEXTURE0 + currentPositionBuffer);
-        // glTexImage1D(GL_TEXTURE_1D, 0, GL_RG32F, P, 0, GL_RG, GL_FLOAT, positions.data());
+        // Density map pass
+        // glUseProgram(densityMapShader);
+        // glUniform1i(glGetUniformLocation(densityMapShader, "position_map"), currentPositionBuffer);
+        // glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[densityMapTextureIndex]);
+        // glViewport(0, 0, width, height);
+        // glClear(GL_COLOR_BUFFER_BIT);
+        // glDrawArrays(GL_POINTS, 0, P);
 
         // Physics timing end
         float delta_physics_time = (glfwGetTime()-physics_time_start)*1000;
@@ -246,16 +214,9 @@ int main() {
             ? exp_average_physics_time = delta_physics_time
             : exp_average_physics_time = alpha_physics_time*delta_physics_time + (1-alpha_physics_time)*exp_average_physics_time;
         std::cout << "physics time: " << exp_average_physics_time << "ms" << std::endl;
-        
-        // Density map pass
-        glUseProgram(densityMapShader);
-        glUniform1i(glGetUniformLocation(densityMapShader, "position_map"), currentPositionBuffer);
-        glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[densityMapTextureIndex]);
-        glViewport(0, 0, width, height);
-        glClear(GL_COLOR_BUFFER_BIT);
-        glDrawArrays(GL_POINTS, 0, P);
 
         // Screen rendering pass
+        float screen_rendering_start = glfwGetTime();
         // glUseProgram(densityMapShader);
         glUseProgram(screenRenderingShader);
         glUniform1i(glGetUniformLocation(screenRenderingShader, "position_map"), currentPositionBuffer);
@@ -263,13 +224,21 @@ int main() {
         glViewport(0, 0, width, height);
         glClear(GL_COLOR_BUFFER_BIT);
         glDrawArrays(GL_POINTS, 0, P);
+        std::cout << "screen rendering time: " << (glfwGetTime()-screen_rendering_start)*1000 << "ms" << std::endl;
 
         // Swap draw and screen buffer
+        float flip_buffer_start = glfwGetTime();
         glfwSwapBuffers(window);
+        std::cout << "flip buffer time: " << (glfwGetTime()-flip_buffer_start)*1000 << "ms" << std::endl;
+
+        float poll_events_start = glfwGetTime();
         glfwPollEvents();
+        std::cout << "poll events time: " << (glfwGetTime()-poll_events_start)*1000 << "ms" << std::endl;
 
         // Swap position buffers
         currentPositionBuffer = otherPositionBuffer;
+
+        std::cout << "  " << std::endl;
     }
 
     // Clean up
@@ -328,6 +297,7 @@ void window_setup() {
     glfwGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
 
     glfwMakeContextCurrent(window);
+    // glfwSwapInterval(0); // Disable vsync
     glfwSwapInterval(1); // Enable vsync
     
     glfwSetFramebufferSizeCallback(window, [](GLFWwindow* window, int new_width, int new_height) {
