@@ -32,17 +32,20 @@ extern const GLchar* densityFragmentShaderSource;
 #include "density.vert"
 #include "density.frag"
 
+// Position shader
+GLuint positionShader;
+extern const GLchar* positionVertexShaderSource;
+extern const GLchar* positionFragmentShaderSource;
+#include "position.vert"
+#include "position.frag"
+
 // Particles
-const int P = 10000;
+const int P = 3000;
 std::array<glm::vec2, P> positions;
 
 void window_setup();
 void shader_setup();
 void updateShaderWidthHeightUniforms(int width, int height);
-
-void particles_setup() {
-
-}
 
 //========================================
 //                                        
@@ -54,10 +57,21 @@ void particles_setup() {
 //                                        
 //========================================
 
+void DEBUG_printPositionTexture(const char* message, const int N = 10) {
+    float pixels[2*P];
+    std::cout << message << ":" << std::endl;
+    glGetTexImage(GL_TEXTURE_1D, 0, GL_RG, GL_FLOAT, &pixels);
+    for (int i = 0; i < 2*N; i += 2) {
+        std::cout << " " << i/2 << ": " << pixels[i] << " " << pixels[i+1] << std::endl;
+    }
+    std::cout << "..." << std::endl;
+}
+
 int main() {
     window_setup();
     shader_setup();
 
+    // Setup vertex array
     std::array<glm::vec2, P> vertices;
     for (glm::vec2& vertex : vertices) {
         vertex = glm::vec2(0,0);
@@ -75,66 +89,78 @@ int main() {
     glEnableVertexAttribArray(0); 
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
 
-    glEnable(GL_PROGRAM_POINT_SIZE);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     updateShaderWidthHeightUniforms(width, height);
 
-    GLuint textures[2];
-    glGenTextures(2, textures);
+    GLuint textures[3];
+    glGenTextures(3, textures);
+    GLuint framebuffers[3];
+    glGenFramebuffers(3, framebuffers);
 
-    // Texture 1 - density map
-    int densityMapTextureIndex = 0;
+    // Texture 0 - Density map
+    const int densityMapTextureIndex = 0;
     glActiveTexture(GL_TEXTURE0 + densityMapTextureIndex);
-    glBindTexture(GL_TEXTURE_2D, textures[1]);
+    glBindTexture(GL_TEXTURE_2D, textures[densityMapTextureIndex]);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, width, height, 0, GL_RGB, GL_FLOAT, NULL);
 
     // Bind the density map to a frame buffer
-    GLuint fbo;
-    glGenFramebuffers(1, &fbo);
-    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textures[1], 0);
-
-    GLenum fbo_status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-    if(fbo_status != GL_FRAMEBUFFER_COMPLETE) {
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[densityMapTextureIndex]);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textures[densityMapTextureIndex], 0);
+    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
         fprintf(stderr, "ERROR::FRAMEBUFFER:: Framebuffer is not complete!\n");
         exit(EXIT_FAILURE);
     }
 
-    // Texture 2
-    int positionMapTextureIndex = 1;
-    glActiveTexture(GL_TEXTURE0 + positionMapTextureIndex);
-    glBindTexture(GL_TEXTURE_1D, textures[0]);
+    // Texture 1 - Position buffer 1
+    const int positionBuffer_1 = 1;
+    glActiveTexture(GL_TEXTURE0 + positionBuffer_1);
+    glBindTexture(GL_TEXTURE_1D, textures[positionBuffer_1]);
     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     float margin = glm::min(width,height)*0.05;
     for (glm::vec2& position : positions) {
         // 
-        position = glm::vec2( glm::gaussRand<float>(0.5, 0.5), glm::gaussRand<float>(0.5, 0.5) );
-        position = glm::clamp(position, 0.0f,1.0f);
+        position = glm::clamp( glm::vec2( glm::gaussRand<float>(0.5, 0.5), glm::gaussRand<float>(0.5, 0.5)), 0.0f, 1.0f );
         // position = glm::vec2( glm::linearRand<float>(0, 1), glm::linearRand<float>(0, 1) );
         position *= ( glm::vec2( width, height ) - 2*margin );
         position += margin;
     }
-
     glTexImage1D(GL_TEXTURE_1D, 0, GL_RG32F, P, 0, GL_RG, GL_FLOAT, positions.data());
+    DEBUG_printPositionTexture("position buffer just after binding");
+    
+    // Bind the position map to a frame buffer
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[positionBuffer_1]);
+    glFramebufferTexture1D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_1D, textures[positionBuffer_1], 0);
+    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        fprintf(stderr, "ERROR::FRAMEBUFFER:: Framebuffer is not complete!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Texture 2 - position buffer 2
+    const int positionBuffer_2 = 2;
+    glActiveTexture(GL_TEXTURE0 + positionBuffer_2);
+    glBindTexture(GL_TEXTURE_1D, textures[positionBuffer_2]);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexImage1D(GL_TEXTURE_1D, 0, GL_RG32F, P, 0, GL_RG, GL_FLOAT, NULL);
+
+    // Bind the velocity map to a frame buffer
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[positionBuffer_2]);
+    glFramebufferTexture1D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_1D, textures[positionBuffer_2], 0);
+    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        fprintf(stderr, "ERROR::FRAMEBUFFER:: Framebuffer is not complete!\n");
+        exit(EXIT_FAILURE);
+    }
 
     // Tell shader about the positions of the textures
-    GLuint location;
     glUseProgram(screenRenderingShader);
-    location = glGetUniformLocation(screenRenderingShader, "density_map");
-    glUniform1i(location, densityMapTextureIndex);
-    location = glGetUniformLocation(screenRenderingShader, "position_map");
-    glUniform1i(location, positionMapTextureIndex);
-
-    glUseProgram(densityMapShader);
-    location = glGetUniformLocation(densityMapShader, "position_map");
-    glUniform1i(location, positionMapTextureIndex);
+    glUniform1i(glGetUniformLocation(screenRenderingShader, "density_map"), densityMapTextureIndex);
     
+    int currentPositionBuffer = positionBuffer_1; // Start by using buffer 1
+    int otherPositionBuffer = positionBuffer_2;
+
     // Physics timing preamble
     float exp_average_physics_time = 0.0f;
     float alpha_physics_time = 0.05;
@@ -143,12 +169,40 @@ int main() {
         
         // Physics timing begin
         float physics_time_start = glfwGetTime();
+        
+        // TODO:
+        // glUseProgram(velocityShader);
+        // glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[positionBuffer_2]);
+        // glClear(GL_COLOR_BUFFER_BIT);
+        // glDrawArrays(GL_POINTS, 0, P);
 
-        for (glm::vec2& position : positions) {
-            position += glm::diskRand(3.0);
-        }
-        glActiveTexture(GL_TEXTURE0 + positionMapTextureIndex);
-        glTexImage1D(GL_TEXTURE_1D, 0, GL_RG32F, P, 0, GL_RG, GL_FLOAT, positions.data());
+        // WIP:
+
+        if (currentPositionBuffer == positionBuffer_1) {otherPositionBuffer = positionBuffer_2;} else {otherPositionBuffer = positionBuffer_1;}
+
+
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[currentPositionBuffer]);
+        DEBUG_printPositionTexture("current position buffer");
+
+
+        glUseProgram(positionShader);
+        glUniform1i(glGetUniformLocation(positionShader, "position_buffer"), currentPositionBuffer);
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[otherPositionBuffer]);
+        DEBUG_printPositionTexture("other position buffer before shader run");
+
+        glClear(GL_COLOR_BUFFER_BIT);
+        glDrawArrays(GL_POINTS, 0, P);
+
+        DEBUG_printPositionTexture("other position buffer after shader run:");
+        
+
+        exit(1); // Stop
+
+        // for (glm::vec2& position : positions) {
+        //     position += glm::diskRand(3.0);
+        // }
+        // glActiveTexture(GL_TEXTURE0 + currentPositionBuffer);
+        // glTexImage1D(GL_TEXTURE_1D, 0, GL_RG32F, P, 0, GL_RG, GL_FLOAT, positions.data());
 
         // Physics timing end
         float delta_physics_time = (glfwGetTime()-physics_time_start)*1000;
@@ -159,13 +213,15 @@ int main() {
 
         // Density map pass
         glUseProgram(densityMapShader);
-        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        glUniform1i(glGetUniformLocation(densityMapShader, "position_map"), currentPositionBuffer);
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[densityMapTextureIndex]);
         glClear(GL_COLOR_BUFFER_BIT);
         glDrawArrays(GL_POINTS, 0, P);
 
         // Screen rendering pass
         // glUseProgram(densityMapShader);
         glUseProgram(screenRenderingShader);
+        glUniform1i(glGetUniformLocation(screenRenderingShader, "position_map"), currentPositionBuffer);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glClear(GL_COLOR_BUFFER_BIT);
         glDrawArrays(GL_POINTS, 0, P);
@@ -173,6 +229,9 @@ int main() {
         // Swap draw and screen buffer
         glfwSwapBuffers(window);
         glfwPollEvents();
+
+        // Swap position buffers
+        currentPositionBuffer = otherPositionBuffer;
     }
 
     // Clean up
@@ -252,6 +311,11 @@ void window_setup() {
         fprintf(stderr, "Failed to initialize GLAD\n");
         exit(EXIT_FAILURE);
     }
+
+    // Enable point size rendering and alpha blending
+    glEnable(GL_PROGRAM_POINT_SIZE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
 //=====================================================
@@ -304,6 +368,11 @@ void shader_setup() {
     compileAndAttachShader(densityVertexShaderSource, GL_VERTEX_SHADER, densityMapShader);
     compileAndAttachShader(densityFragmentShaderSource, GL_FRAGMENT_SHADER, densityMapShader);
     linkShaderProgram(densityMapShader);
+
+    positionShader = glCreateProgram();
+    compileAndAttachShader(positionVertexShaderSource, GL_VERTEX_SHADER, positionShader);
+    compileAndAttachShader(positionFragmentShaderSource, GL_FRAGMENT_SHADER, positionShader);
+    linkShaderProgram(positionShader);
 }
 
 void updateShaderWidthHeightUniforms(int new_width, int new_height) {
@@ -311,6 +380,9 @@ void updateShaderWidthHeightUniforms(int new_width, int new_height) {
     glUniform1f(glGetUniformLocation(screenRenderingShader, "window_width"), new_width);
     glUniform1f(glGetUniformLocation(screenRenderingShader, "window_height"), new_height);
     glUseProgram(densityMapShader);
+    glUniform1f(glGetUniformLocation(densityMapShader, "window_width"), new_width);
+    glUniform1f(glGetUniformLocation(densityMapShader, "window_height"), new_height);
+    glUseProgram(positionShader);
     glUniform1f(glGetUniformLocation(densityMapShader, "window_width"), new_width);
     glUniform1f(glGetUniformLocation(densityMapShader, "window_height"), new_height);
 }
