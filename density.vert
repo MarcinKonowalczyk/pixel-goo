@@ -16,6 +16,6 @@ void main() {
         );
 
     gl_Position = vec4(normalised_coordinates.x, normalised_coordinates.y, 0.0f, 1.0f);
-    gl_PointSize = 40.0f;
+    gl_PointSize = 20.0f;
 }
 )";

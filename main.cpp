@@ -40,8 +40,8 @@ extern const GLchar* positionFragmentShaderSource;
 #include "position.frag"
 
 // Particles
-// const int P = 1500;
-const int P = 16384; // <- render buffer max
+const int P = 5000;
+// const int P = 16384; // <- render buffer max
 std::array<glm::vec2, P> positions;
 
 void window_setup();
@@ -193,23 +193,23 @@ int main() {
         glUniform1i(glGetUniformLocation(positionShader, "position_buffer"), currentPositionBuffer);
         glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[otherPositionBuffer]);
         glViewport(0, 0, P, 1); // Change the viewport to the size of the 1D texture vector
-        // glClear(GL_COLOR_BUFFER_BIT);
+        // glClear(GL_COLOR_BUFFER_BIT); // Dont need to clear it as its writing to each pixel anyway
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
         // Density and screen shaders use the same viewport so set it only once
         glViewport(0, 0, width, height);
 
         // Density map pass
-        // glUseProgram(densityMapShader);
-        // glUniform1i(glGetUniformLocation(densityMapShader, "position_buffer"), otherPositionBuffer);
-        // glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[densityMapTextureIndex]);
-        // glClear(GL_COLOR_BUFFER_BIT);
-        // glDrawArrays(GL_POINTS, 0, P);
+        glUseProgram(densityMapShader);
+        glUniform1i(glGetUniformLocation(densityMapShader, "position_buffer"), otherPositionBuffer);
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[densityMapTextureIndex]);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glDrawArrays(GL_POINTS, 0, P);
 
         // Screen rendering pass
         // glUseProgram(densityMapShader);
-        glUseProgram(screenRenderingShader);
         // glUniform1i(glGetUniformLocation(densityMapShader, "position_buffer"), otherPositionBuffer);
+        glUseProgram(screenRenderingShader);
         glUniform1i(glGetUniformLocation(screenRenderingShader, "position_buffer"), otherPositionBuffer);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glClear(GL_COLOR_BUFFER_BIT);
