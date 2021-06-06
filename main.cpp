@@ -179,19 +179,15 @@ int main() {
     int otherPositionBuffer = positionBuffer_2;
 
     // Physics timing preamble
-    float exp_average_physics_time = 0.0f;
-    float alpha_physics_time = 1.0;
+    float exp_average_flip_time = 0.0f;
+    float alpha_flip_time = 0.1;
 
     while (!glfwWindowShouldClose(window)) {
-        
-        // Physics timing begin
-        float physics_time_start = glfwGetTime();
-        
+
+        otherPositionBuffer = currentPositionBuffer == positionBuffer_1 ? positionBuffer_2 : positionBuffer_1;
+
         // TODO:
         // velocity double buffer
-
-        // WIP:
-        if (currentPositionBuffer == positionBuffer_1) {otherPositionBuffer = positionBuffer_2;} else {otherPositionBuffer = positionBuffer_1;}
 
         glUseProgram(positionShader);
         glUniform1i(glGetUniformLocation(positionShader, "position_buffer"), currentPositionBuffer);
@@ -200,45 +196,44 @@ int main() {
         // glClear(GL_COLOR_BUFFER_BIT);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
+        // Density and screen shaders use the same viewport so set it only once
+        glViewport(0, 0, width, height);
+
         // Density map pass
         // glUseProgram(densityMapShader);
-        // glUniform1i(glGetUniformLocation(densityMapShader, "position_map"), currentPositionBuffer);
+        // glUniform1i(glGetUniformLocation(densityMapShader, "position_buffer"), otherPositionBuffer);
         // glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[densityMapTextureIndex]);
-        // glViewport(0, 0, width, height);
         // glClear(GL_COLOR_BUFFER_BIT);
         // glDrawArrays(GL_POINTS, 0, P);
 
-        // Physics timing end
-        float delta_physics_time = (glfwGetTime()-physics_time_start)*1000;
-        exp_average_physics_time == 0.0f
-            ? exp_average_physics_time = delta_physics_time
-            : exp_average_physics_time = alpha_physics_time*delta_physics_time + (1-alpha_physics_time)*exp_average_physics_time;
-        std::cout << "physics time: " << exp_average_physics_time << "ms" << std::endl;
-
         // Screen rendering pass
-        float screen_rendering_start = glfwGetTime();
         // glUseProgram(densityMapShader);
         glUseProgram(screenRenderingShader);
-        glUniform1i(glGetUniformLocation(screenRenderingShader, "position_map"), currentPositionBuffer);
+        // glUniform1i(glGetUniformLocation(densityMapShader, "position_buffer"), otherPositionBuffer);
+        glUniform1i(glGetUniformLocation(screenRenderingShader, "position_buffer"), otherPositionBuffer);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glViewport(0, 0, width, height);
         glClear(GL_COLOR_BUFFER_BIT);
         glDrawArrays(GL_POINTS, 0, P);
-        std::cout << "screen rendering time: " << (glfwGetTime()-screen_rendering_start)*1000 << "ms" << std::endl;
+
+        // Flip timing start
+        float flip_buffer_start = glfwGetTime();
 
         // Swap draw and screen buffer
-        float flip_buffer_start = glfwGetTime();
         glfwSwapBuffers(window);
-        std::cout << "flip buffer time: " << (glfwGetTime()-flip_buffer_start)*1000 << "ms" << std::endl;
 
-        float poll_events_start = glfwGetTime();
+        // Flip timing end
+        float delta_flip_time = (glfwGetTime()-flip_buffer_start)*1000;
+        exp_average_flip_time == 0.0f
+            ? exp_average_flip_time = delta_flip_time
+            : exp_average_flip_time = alpha_flip_time*delta_flip_time + (1-alpha_flip_time)*exp_average_flip_time;
+        std::cout << "buffer flip time: " << exp_average_flip_time << "ms" << std::endl;
+
+        // float poll_events_start = glfwGetTime();
         glfwPollEvents();
-        std::cout << "poll events time: " << (glfwGetTime()-poll_events_start)*1000 << "ms" << std::endl;
+        // std::cout << "poll events time: " << (glfwGetTime()-poll_events_start)*1000 << "ms" << std::endl;
 
         // Swap position buffers
         currentPositionBuffer = otherPositionBuffer;
-
-        std::cout << "  " << std::endl;
     }
 
     // Clean up
@@ -391,6 +386,6 @@ void updateShaderWidthHeightUniforms(int new_width, int new_height) {
     glUniform1f(glGetUniformLocation(densityMapShader, "window_width"), new_width);
     glUniform1f(glGetUniformLocation(densityMapShader, "window_height"), new_height);
     glUseProgram(positionShader);
-    glUniform1f(glGetUniformLocation(densityMapShader, "window_width"), new_width);
-    glUniform1f(glGetUniformLocation(densityMapShader, "window_height"), new_height);
+    glUniform1f(glGetUniformLocation(positionShader, "window_width"), new_width);
+    glUniform1f(glGetUniformLocation(positionShader, "window_height"), new_height);
 }

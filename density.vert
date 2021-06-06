@@ -1,15 +1,15 @@
 // Vertex shader source
 // This file will be #included in the source at compile time
-// The actuall rource must therefore be in an R-string
+// The actuall source must therefore be in an R-string
 const GLchar* densityVertexShaderSource = R"(
 #version 330 core
 
 uniform float window_width;
 uniform float window_height;
-uniform sampler1D position_map;
+uniform sampler1D position_buffer;
 
 void main() {
-    vec2 temp = vec2(texelFetch(position_map, gl_VertexID, 0));
+    vec2 temp = vec2(texelFetch(position_buffer, gl_VertexID, 0));
     vec2 normalised_coordinates = vec2(
         temp.x/(window_width/2)-1,
         -(temp.y/(window_height/2)-1)

@@ -7,23 +7,29 @@ const GLchar* positionFragmentShaderSource = R"(
 // Access fragmet coordinates in integer steps
 // TODO: explain more
 layout(pixel_center_integer) in vec4 gl_FragCoord;
-out vec4 new_position;
+out vec4 out_position;
 
+uniform float window_width;
+uniform float window_height;
 uniform sampler1D position_buffer;
 
 // Based on:
 // https://thebookofshaders.com/10/
 // http://patriciogonzalezvivo.com
-float random (float seed) {
-    return 2*fract(sin(seed*12.9898)*43758.5453123)-1;
+vec2 random (vec2 seed) {
+    float a = dot(seed.xy,vec2(0.890,0.870));
+    float b = dot(seed.xy,vec2(-0.670,0.570));
+    return 2*fract(sin(vec2(a,b))*43758.5453123)-1;
 }
 
 void main() {
     int i = int(gl_FragCoord.x); // Index of the particle
     vec2 position = vec2(texelFetch(position_buffer, i, 0)); // previous position
 
-    vec2 delta_position = vec2(random(position.y), random(position.x));
+    vec2 delta_position = random(position.xy);
 
-    new_position = vec4(position.xy+delta_position.xy, 0.0f, 1.0f);
+    vec2 new_position = position.xy+delta_position.xy;
+
+    out_position = vec4(new_position.xy, 0.0, 1.0);
 }
 )";
