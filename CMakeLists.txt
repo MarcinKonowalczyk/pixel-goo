@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(goddamnit)
+project(goo)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -18,9 +18,9 @@ add_subdirectory( glfw )
 
 add_subdirectory( glm )
 
-set( goddamnit-SRC main.cpp )
-add_executable( goddamnit ${goddamnit-SRC} )
+set( goo-SRC main.cpp )
+add_executable( goo ${goo-SRC} )
 
-target_include_directories(goddamnit PUBLIC "${PROJECT_BINARY_DIR}")
+target_include_directories(goo PUBLIC "${PROJECT_BINARY_DIR}")
 
-target_link_libraries( goddamnit glad glfw glm )
+target_link_libraries( goo glad glfw glm )

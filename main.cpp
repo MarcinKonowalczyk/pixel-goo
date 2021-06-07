@@ -15,7 +15,7 @@
 GLFWwindow* window;
 int width = 800;
 int height = 600;
-const char* title = "Goolets";
+const char* title = "Pixel Goo";
 const bool fullscreen = false;
 // const bool fullscreen = true;
 int whichMonitor = 1;

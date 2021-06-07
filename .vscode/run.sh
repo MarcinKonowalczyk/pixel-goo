@@ -18,25 +18,15 @@ echo "FILENAME : ${FILENAME}"
 echo "DIR : ${DIR}"
 echo "ROOT : ${ROOT}"
 
-# Do some other stuff here. In this case run the makefile if
-# you're currently editing the makefile
-# if [ "$FILENAME" = "makefile" ]; then
-#     echo "About to run the makefile!";
-#     make;
-# fi
 
+TARGET="goo"
 make --directory="$ROOT/build/"
-
-# exit 0
 
 OUT=$?
 if [ $OUT == 0 ]; then
-    echo "bash: Running goddamnit..."
-    "$ROOT/build/goddamnit";
+    echo "bash: Running $TARGET..."
+    "$ROOT/build/$TARGET";
 else
     echo "bash: Compilation failed";
     exit $OUT
 fi
-
-
-# make;
