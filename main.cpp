@@ -41,10 +41,11 @@ extern const GLchar* densityFragmentShaderSource;
 #include "density.vert"
 #include "density.frag"
 // Alpha blending of each of the fragments
-const float densityAlpha = 0.06f;
+const float densityAlpha = 0.05f;
+const float kernelRadius = 30.0f;
 
 // This can be quite a lot because the density map is lerped and particles dither
-const int densityMapDownsampling = 50;
+const int densityMapDownsampling = 10;
 int density_width = width/densityMapDownsampling + 1;
 int density_height = height/densityMapDownsampling + 1;
 
@@ -178,6 +179,7 @@ int main() {
     glUseProgram(densityMapShader);
     glUniform1i(glGetUniformLocation(densityMapShader, "density_map_downsampling"), densityMapDownsampling);
     glUniform1f(glGetUniformLocation(densityMapShader, "density_alpha"), densityAlpha);
+    glUniform1f(glGetUniformLocation(densityMapShader, "kernel_radius"), kernelRadius);
 
     int currentPositionBuffer = positionBufferIndex1; // Start by using buffer 1
     int otherPositionBuffer = positionBufferIndex2;
@@ -214,6 +216,9 @@ int main() {
         // Screen rendering pass
         glUseProgram(screenRenderingShader);
         glUniform1i(glGetUniformLocation(screenRenderingShader, "position_buffer"), otherPositionBuffer);
+        // glUseProgram(densityMapShader);
+        // glUniform1i(glGetUniformLocation(densityMapShader, "density_map_downsampling"), 1); // Turn off downsampling to render points on screen
+        // glUniform1i(glGetUniformLocation(densityMapShader, "position_buffer"), otherPositionBuffer);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glViewport(0, 0, width, height);
         glClear(GL_COLOR_BUFFER_BIT);
