@@ -8,13 +8,14 @@ out vec4 color;
 layout(pixel_center_integer) in vec4 gl_FragCoord;
 
 uniform sampler2D density_map;
+uniform int density_map_downsampling;
 
 const vec4 color1 = vec4(0.067f, 0.455f, 0.729f, 1.0f);
 const vec4 color2 = vec4(0.843f, 0.329f, 0.149f, 1.0f);
 
 void main() {
     // indices of the particle
-    ivec2 position = ivec2(gl_FragCoord.x, gl_FragCoord.y);
+    ivec2 position = ivec2(gl_FragCoord.xy/density_map_downsampling);
     float density = texelFetch(density_map, position, 0).x;
 
     color = mix(color1, color2, density);

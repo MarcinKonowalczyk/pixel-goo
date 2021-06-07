@@ -7,6 +7,7 @@ const GLchar* densityVertexShaderSource = R"(
 uniform float window_width;
 uniform float window_height;
 uniform sampler1D position_buffer;
+uniform int density_map_downsampling;
 
 void main() {
     vec2 temp = vec2(texelFetch(position_buffer, gl_VertexID, 0));
@@ -16,6 +17,6 @@ void main() {
         );
 
     gl_Position = vec4(normalised_coordinates.x, normalised_coordinates.y, 0.0f, 1.0f);
-    gl_PointSize = 20.0f;
+    gl_PointSize = 20.0f/density_map_downsampling;
 }
 )";

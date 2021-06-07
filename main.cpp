@@ -16,7 +16,9 @@ GLFWwindow* window;
 int width = 800;
 int height = 600;
 const char* title = "Goolets";
-bool fullscreen = false;
+const bool fullscreen = false;
+// const bool fullscreen = true;
+int whichMonitor = 1;
 
 // Screen shader
 GLuint screenRenderingShader;
@@ -25,12 +27,17 @@ extern const GLchar* screenFragmentShaderSource;
 #include "screen.vert"
 #include "screen.frag"
 
-// Density Map shader
+// Density Map
 GLuint densityMapShader;
 extern const GLchar* densityVertexShaderSource;
 extern const GLchar* densityFragmentShaderSource;
 #include "density.vert"
 #include "density.frag"
+
+// This can be quite a lot because the density map is lerped and particles dither
+const int densityMapDownsampling = 10;
+int density_width = width/densityMapDownsampling;
+int density_height = height/densityMapDownsampling;
 
 // Position shader
 GLuint positionShader;
@@ -40,9 +47,8 @@ extern const GLchar* positionFragmentShaderSource;
 #include "position.frag"
 
 // Particles
-const int P = 5000;
-// const int P = 16384; // <- render buffer max
-std::array<glm::vec2, P> positions;
+// const int P = 5000;
+const int P = 16384; // <- render buffer max
 
 void window_setup();
 void shader_setup();
@@ -107,7 +113,7 @@ int main() {
     glBindTexture(GL_TEXTURE_2D, textures[densityMapTextureIndex]);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0, GL_RED, GL_FLOAT, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, density_width, density_height, 0, GL_RED, GL_FLOAT, NULL);
 
     // Bind the density map to a frame buffer
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[densityMapTextureIndex]);
@@ -132,10 +138,17 @@ int main() {
     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     float margin = glm::min(width,height)*0.05;
+    float noise_seed = 10*glfwGetTime() + glm::linearRand<float>(0, 1);
+    std::array<glm::vec2, P> positions;
     for (glm::vec2& position : positions) {
-        // 
-        position = glm::clamp( glm::vec2( glm::gaussRand<float>(0.5, 0.5), glm::gaussRand<float>(0.5, 0.5)), 0.0f, 1.0f );
+        // position = glm::clamp( glm::vec2( glm::gaussRand<float>(0.5, 0.5), glm::gaussRand<float>(0.5, 0.5)), 0.0f, 1.0f );
         // position = glm::vec2( glm::linearRand<float>(0, 1), glm::linearRand<float>(0, 1) );
+        float noise_value;
+        do {
+            position = glm::vec2( glm::linearRand<float>(0, 1), glm::linearRand<float>(0, 1) );
+            noise_value = glm::perlin( glm::vec3( position.x*4, position.y*4, noise_seed)) + 0.5;
+            noise_value = glm::clamp( noise_value, 0.2f, 1.0f);
+        } while (glm::linearRand<float>(0, 1) < noise_value);
         position *= ( glm::vec2( width, height ) - 2*margin );
         position += margin;
     }
@@ -174,6 +187,9 @@ int main() {
     // Tell shader about the positions of the textures
     glUseProgram(screenRenderingShader);
     glUniform1i(glGetUniformLocation(screenRenderingShader, "density_map"), densityMapTextureIndex);
+    glUniform1i(glGetUniformLocation(screenRenderingShader, "density_map_downsampling"), densityMapDownsampling);
+    glUseProgram(densityMapShader);
+    glUniform1i(glGetUniformLocation(densityMapShader, "density_map_downsampling"), densityMapDownsampling);
 
     int currentPositionBuffer = positionBuffer_1; // Start by using buffer 1
     int otherPositionBuffer = positionBuffer_2;
@@ -199,13 +215,11 @@ int main() {
         // glClear(GL_COLOR_BUFFER_BIT); // Dont need to clear it as its writing to each pixel anyway
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-        // Density and screen shaders use the same viewport so set it only once
-        glViewport(0, 0, width, height);
-
         // Density map pass
         glUseProgram(densityMapShader);
         glUniform1i(glGetUniformLocation(densityMapShader, "position_buffer"), otherPositionBuffer);
         glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[densityMapTextureIndex]);
+        glViewport(0, 0, density_width, density_height);
         glClear(GL_COLOR_BUFFER_BIT);
         glDrawArrays(GL_POINTS, 0, P);
 
@@ -215,6 +229,7 @@ int main() {
         glUseProgram(screenRenderingShader);
         glUniform1i(glGetUniformLocation(screenRenderingShader, "position_buffer"), otherPositionBuffer);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glViewport(0, 0, width, height);
         glClear(GL_COLOR_BUFFER_BIT);
         glDrawArrays(GL_POINTS, 0, P);
 
@@ -275,17 +290,24 @@ void window_setup() {
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
 
-    GLFWmonitor* primaryMonitor;
+    GLFWmonitor* monitor;
     if (fullscreen) {
-        primaryMonitor = glfwGetPrimaryMonitor();
-        const GLFWvidmode* mode = glfwGetVideoMode(primaryMonitor);
-        width = mode->width;
-        height = mode->height;
+        int monitorCount;
+        GLFWmonitor** monitors = glfwGetMonitors(&monitorCount);
+        std::cout << monitorCount << " monitors found" << std::endl;
+        if (whichMonitor >= monitorCount) { whichMonitor = 0; };
+        std::cout << "using monitor " << whichMonitor << std::endl;
+        monitor = monitors[whichMonitor];
+        const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+        width = mode->width*2;
+        height = mode->height*2;
+        density_width = width/densityMapDownsampling;
+        density_height = height/densityMapDownsampling;
     } else {
-        primaryMonitor = nullptr;
+        monitor = nullptr;
     }
 
-    window = glfwCreateWindow(width, height, title, primaryMonitor, nullptr);
+    window = glfwCreateWindow(width, height, title, monitor, nullptr);
 
     if (!window) {
         fprintf(stderr, "Failed to create GLFW window\n");
@@ -304,6 +326,8 @@ void window_setup() {
         width = new_width;
         height = new_height;
         updateShaderWidthHeightUniforms(width, height);
+        density_width = width/densityMapDownsampling;
+        density_height = height/densityMapDownsampling;
     });
 
     glfwSetKeyCallback(window, [](GLFWwindow* window, int key, int scancode, int action, int mods) {
@@ -312,8 +336,8 @@ void window_setup() {
             if (key == GLFW_KEY_ESCAPE) {glfwSetWindowShouldClose(window, true);}
         }
     });
-
     // GLAD
+
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
         fprintf(stderr, "Failed to initialize GLAD\n");
         exit(EXIT_FAILURE);
@@ -393,3 +417,26 @@ void updateShaderWidthHeightUniforms(int new_width, int new_height) {
     glUniform1f(glGetUniformLocation(positionShader, "window_width"), new_width);
     glUniform1f(glGetUniformLocation(positionShader, "window_height"), new_height);
 }
+
+// void allocateDensityBuffer(int densityMapTextureIndex) {
+//     glActiveTexture(GL_TEXTURE0 + densityMapTextureIndex);
+//     glBindTexture(GL_TEXTURE_2D, textures[densityMapTextureIndex]);
+//     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+//     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+//     glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, density_width, density_height, 0, GL_RED, GL_FLOAT, NULL);
+
+//     // Bind the density map to a frame buffer
+//     glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[densityMapTextureIndex]);
+//     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textures[densityMapTextureIndex], 0);
+//     if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+//         fprintf(stderr, "ERROR::FRAMEBUFFER:: Framebuffer is not complete!\n");
+//         exit(EXIT_FAILURE);
+//     }
+
+//     GLint max_renderbuffer_size;
+//     glGetIntegerv(GL_MAX_RENDERBUFFER_SIZE, &max_renderbuffer_size); 
+//     if (P > max_renderbuffer_size) {
+//         std::cerr << "number of particles (" << P << ") larger than renderbuffer size (" << max_renderbuffer_size << ")" << std::endl;
+//         exit(EXIT_FAILURE);
+//     }
+// }

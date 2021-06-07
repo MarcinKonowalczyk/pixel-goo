@@ -27,8 +27,8 @@ void main() {
     int i = int(gl_FragCoord.x); // Index of the particle
     vec2 position = vec2(texelFetch(position_buffer, i, 0)); // previous position
     vec2 delta_position = vec2(0,0);
-    // delta_position += random(position.xy + epoch_counter); // diffusion
-    delta_position += -vec2(1.0, 1.0); // drift
+    delta_position += random(position.xy + epoch_counter); // diffusion
+    delta_position += +vec2(1.0, 1.0); // drift
 
     vec2 new_position = position.xy+delta_position.xy;
     new_position = mod(new_position, vec2(window_width, window_height));
