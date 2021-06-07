@@ -4,15 +4,19 @@
 const GLchar* screenFragmentShaderSource = R"(
 #version 330 core
 out vec4 color;
+
+layout(pixel_center_integer) in vec4 gl_FragCoord;
+
 uniform sampler2D density_map;
 
-// ToDo: Use FramentPosition ?
-uniform float window_width;
-uniform float window_height;
+const vec4 color1 = vec4(0.067f, 0.455f, 0.729f, 1.0f);
+const vec4 color2 = vec4(0.843f, 0.329f, 0.149f, 1.0f);
 
 void main() {
-    vec2 temp = vec2(gl_FragCoord.x/window_width, -gl_FragCoord.y/window_height);
-    color = vec4(texture(density_map, temp)) + vec4(0.067f, 0.455f, 0.729f, 1.0f);
-    // color = vec4(0.067f, 0.455f, 0.729f, 1.0f);
+    // indices of the particle
+    ivec2 position = ivec2(gl_FragCoord.x, gl_FragCoord.y);
+    float density = texelFetch(density_map, position, 0).x;
+
+    color = mix(color1, color2, density);
 }
 )";

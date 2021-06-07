@@ -107,7 +107,7 @@ int main() {
     glBindTexture(GL_TEXTURE_2D, textures[densityMapTextureIndex]);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, width, height, 0, GL_RGB, GL_FLOAT, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0, GL_RED, GL_FLOAT, NULL);
 
     // Bind the density map to a frame buffer
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[densityMapTextureIndex]);
@@ -178,6 +178,8 @@ int main() {
     int currentPositionBuffer = positionBuffer_1; // Start by using buffer 1
     int otherPositionBuffer = positionBuffer_2;
 
+    int epoch_counter = 0;
+
     // Physics timing preamble
     float exp_average_flip_time = 0.0f;
     float alpha_flip_time = 0.1;
@@ -191,6 +193,7 @@ int main() {
 
         glUseProgram(positionShader);
         glUniform1i(glGetUniformLocation(positionShader, "position_buffer"), currentPositionBuffer);
+        glUniform1i(glGetUniformLocation(positionShader, "epoch_counter"), epoch_counter);
         glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[otherPositionBuffer]);
         glViewport(0, 0, P, 1); // Change the viewport to the size of the 1D texture vector
         // glClear(GL_COLOR_BUFFER_BIT); // Dont need to clear it as its writing to each pixel anyway
@@ -234,6 +237,7 @@ int main() {
 
         // Swap position buffers
         currentPositionBuffer = otherPositionBuffer;
+        epoch_counter++;
     }
 
     // Clean up
