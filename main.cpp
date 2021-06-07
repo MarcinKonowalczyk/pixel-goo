@@ -20,6 +20,13 @@ const bool fullscreen = false;
 // const bool fullscreen = true;
 int whichMonitor = 1;
 
+// Textures and framebuffers
+GLuint textures[3];
+GLuint framebuffers[3];
+const int densityMapIndex = 0;
+const int positionBufferIndex1 = 1;
+const int positionBufferIndex2 = 2;
+
 // Screen shader
 GLuint screenRenderingShader;
 extern const GLchar* screenVertexShaderSource;
@@ -33,11 +40,13 @@ extern const GLchar* densityVertexShaderSource;
 extern const GLchar* densityFragmentShaderSource;
 #include "density.vert"
 #include "density.frag"
+// Alpha blending of each of the fragments
+const float densityAlpha = 0.06f;
 
 // This can be quite a lot because the density map is lerped and particles dither
-const int densityMapDownsampling = 10;
-int density_width = width/densityMapDownsampling;
-int density_height = height/densityMapDownsampling;
+const int densityMapDownsampling = 50;
+int density_width = width/densityMapDownsampling + 1;
+int density_height = height/densityMapDownsampling + 1;
 
 // Position shader
 GLuint positionShader;
@@ -47,12 +56,14 @@ extern const GLchar* positionFragmentShaderSource;
 #include "position.frag"
 
 // Particles
+// const int P = 100;
 // const int P = 5000;
 const int P = 16384; // <- render buffer max
 
 void window_setup();
 void shader_setup();
 void updateShaderWidthHeightUniforms(int width, int height);
+void allocateDensityBuffer(int densityMapIndex);
 
 //========================================
 //                                        
@@ -92,48 +103,25 @@ int main() {
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
     
-    GLuint buf[1];
-    glGenBuffers(1, buf);
-    
-    glBindBuffer(GL_ARRAY_BUFFER, buf[0]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices.data(), GL_DYNAMIC_DRAW);
+    GLuint buf;
+    glGenBuffers(1, &buf);
+    glBindBuffer(GL_ARRAY_BUFFER, buf);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices.data(), GL_STATIC_DRAW);
     glEnableVertexAttribArray(0); 
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
 
     updateShaderWidthHeightUniforms(width, height);
 
-    GLuint textures[3];
+    // Initalise textures and the associated framebuffers
     glGenTextures(3, textures);
-    GLuint framebuffers[3];
     glGenFramebuffers(3, framebuffers);
 
     // Texture 0 - Density map
-    const int densityMapTextureIndex = 0;
-    glActiveTexture(GL_TEXTURE0 + densityMapTextureIndex);
-    glBindTexture(GL_TEXTURE_2D, textures[densityMapTextureIndex]);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, density_width, density_height, 0, GL_RED, GL_FLOAT, NULL);
-
-    // Bind the density map to a frame buffer
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[densityMapTextureIndex]);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textures[densityMapTextureIndex], 0);
-    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-        fprintf(stderr, "ERROR::FRAMEBUFFER:: Framebuffer is not complete!\n");
-        exit(EXIT_FAILURE);
-    }
-
-    GLint max_renderbuffer_size;
-    glGetIntegerv(GL_MAX_RENDERBUFFER_SIZE, &max_renderbuffer_size); 
-    if (P > max_renderbuffer_size) {
-        std::cerr << "number of particles (" << P << ") larger than renderbuffer size (" << max_renderbuffer_size << ")" << std::endl;
-        exit(EXIT_FAILURE);
-    }
+    allocateDensityBuffer(densityMapIndex);
 
     // Texture 1 - Position buffer 1
-    const int positionBuffer_1 = 1;
-    glActiveTexture(GL_TEXTURE0 + positionBuffer_1);
-    glBindTexture(GL_TEXTURE_1D, textures[positionBuffer_1]);
+    glActiveTexture(GL_TEXTURE0 + positionBufferIndex1);
+    glBindTexture(GL_TEXTURE_1D, textures[positionBufferIndex1]);
     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
@@ -155,17 +143,16 @@ int main() {
     glTexImage1D(GL_TEXTURE_1D, 0, GL_RG32F, P, 0, GL_RG, GL_FLOAT, positions.data());
 
     // Bind the position map to a frame buffer
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[positionBuffer_1]);
-    glFramebufferTexture1D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_1D, textures[positionBuffer_1], 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[positionBufferIndex1]);
+    glFramebufferTexture1D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_1D, textures[positionBufferIndex1], 0);
     if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
         fprintf(stderr, "ERROR::FRAMEBUFFER:: Framebuffer is not complete!\n");
         exit(EXIT_FAILURE);
     }
 
     // Texture 2 - position buffer 2
-    const int positionBuffer_2 = 2;
-    glActiveTexture(GL_TEXTURE0 + positionBuffer_2);
-    glBindTexture(GL_TEXTURE_1D, textures[positionBuffer_2]);
+    glActiveTexture(GL_TEXTURE0 + positionBufferIndex2);
+    glBindTexture(GL_TEXTURE_1D, textures[positionBufferIndex2]);
     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
@@ -177,8 +164,8 @@ int main() {
     glTexImage1D(GL_TEXTURE_1D, 0, GL_RG32F, P, 0, GL_RG, GL_FLOAT, positions2.data());
 
     // Bind the velocity map to a frame buffer
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[positionBuffer_2]);
-    glFramebufferTexture1D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_1D, textures[positionBuffer_2], 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[positionBufferIndex2]);
+    glFramebufferTexture1D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_1D, textures[positionBufferIndex2], 0);
     if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
         fprintf(stderr, "ERROR::FRAMEBUFFER:: Framebuffer is not complete!\n");
         exit(EXIT_FAILURE);
@@ -186,13 +173,14 @@ int main() {
 
     // Tell shader about the positions of the textures
     glUseProgram(screenRenderingShader);
-    glUniform1i(glGetUniformLocation(screenRenderingShader, "density_map"), densityMapTextureIndex);
+    glUniform1i(glGetUniformLocation(screenRenderingShader, "density_map"), densityMapIndex);
     glUniform1i(glGetUniformLocation(screenRenderingShader, "density_map_downsampling"), densityMapDownsampling);
     glUseProgram(densityMapShader);
     glUniform1i(glGetUniformLocation(densityMapShader, "density_map_downsampling"), densityMapDownsampling);
+    glUniform1f(glGetUniformLocation(densityMapShader, "density_alpha"), densityAlpha);
 
-    int currentPositionBuffer = positionBuffer_1; // Start by using buffer 1
-    int otherPositionBuffer = positionBuffer_2;
+    int currentPositionBuffer = positionBufferIndex1; // Start by using buffer 1
+    int otherPositionBuffer = positionBufferIndex2;
 
     int epoch_counter = 0;
 
@@ -202,7 +190,7 @@ int main() {
 
     while (!glfwWindowShouldClose(window)) {
 
-        otherPositionBuffer = currentPositionBuffer == positionBuffer_1 ? positionBuffer_2 : positionBuffer_1;
+        otherPositionBuffer = currentPositionBuffer == positionBufferIndex1 ? positionBufferIndex2 : positionBufferIndex1;
 
         // TODO:
         // velocity double buffer
@@ -218,14 +206,12 @@ int main() {
         // Density map pass
         glUseProgram(densityMapShader);
         glUniform1i(glGetUniformLocation(densityMapShader, "position_buffer"), otherPositionBuffer);
-        glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[densityMapTextureIndex]);
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[densityMapIndex]);
         glViewport(0, 0, density_width, density_height);
         glClear(GL_COLOR_BUFFER_BIT);
         glDrawArrays(GL_POINTS, 0, P);
 
         // Screen rendering pass
-        // glUseProgram(densityMapShader);
-        // glUniform1i(glGetUniformLocation(densityMapShader, "position_buffer"), otherPositionBuffer);
         glUseProgram(screenRenderingShader);
         glUniform1i(glGetUniformLocation(screenRenderingShader, "position_buffer"), otherPositionBuffer);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -288,7 +274,13 @@ void window_setup() {
     // glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
 #ifdef __APPLE__
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+    glfwWindowHint(GLFW_COCOA_RETINA_FRAMEBUFFER,GL_FALSE);
 #endif
+    // glfwWindowHint(GLFW_DECORATED,GLFW_FALSE);
+    // glfwWindowHint(GLFW_MAXIMIZED,GLFW_TRUE);
+
+    // glfwWindowHint(GLFW_SAMPLES,GLFW_FALSE); // Disable multisampling
+
 
     GLFWmonitor* monitor;
     if (fullscreen) {
@@ -299,10 +291,10 @@ void window_setup() {
         std::cout << "using monitor " << whichMonitor << std::endl;
         monitor = monitors[whichMonitor];
         const GLFWvidmode* mode = glfwGetVideoMode(monitor);
-        width = mode->width*2;
-        height = mode->height*2;
-        density_width = width/densityMapDownsampling;
-        density_height = height/densityMapDownsampling;
+        width = mode->width;
+        height = mode->height;
+        density_width = width/densityMapDownsampling + 1;
+        density_height = height/densityMapDownsampling + 1;
     } else {
         monitor = nullptr;
     }
@@ -326,8 +318,9 @@ void window_setup() {
         width = new_width;
         height = new_height;
         updateShaderWidthHeightUniforms(width, height);
-        density_width = width/densityMapDownsampling;
-        density_height = height/densityMapDownsampling;
+        density_width = width/densityMapDownsampling + 1;
+        density_height = height/densityMapDownsampling + 1;
+        allocateDensityBuffer(densityMapIndex);
     });
 
     glfwSetKeyCallback(window, [](GLFWwindow* window, int key, int scancode, int action, int mods) {
@@ -418,25 +411,27 @@ void updateShaderWidthHeightUniforms(int new_width, int new_height) {
     glUniform1f(glGetUniformLocation(positionShader, "window_height"), new_height);
 }
 
-// void allocateDensityBuffer(int densityMapTextureIndex) {
-//     glActiveTexture(GL_TEXTURE0 + densityMapTextureIndex);
-//     glBindTexture(GL_TEXTURE_2D, textures[densityMapTextureIndex]);
-//     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-//     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-//     glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, density_width, density_height, 0, GL_RED, GL_FLOAT, NULL);
+void allocateDensityBuffer(int densityMapIndex) {
+    glActiveTexture(GL_TEXTURE0 + densityMapIndex);
+    glBindTexture(GL_TEXTURE_2D, textures[densityMapIndex]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, density_width, density_height, 0, GL_RED, GL_FLOAT, NULL);
 
-//     // Bind the density map to a frame buffer
-//     glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[densityMapTextureIndex]);
-//     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textures[densityMapTextureIndex], 0);
-//     if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-//         fprintf(stderr, "ERROR::FRAMEBUFFER:: Framebuffer is not complete!\n");
-//         exit(EXIT_FAILURE);
-//     }
+    // Bind the density map to a frame buffer
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[densityMapIndex]);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textures[densityMapIndex], 0);
+    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        fprintf(stderr, "ERROR::FRAMEBUFFER:: Framebuffer is not complete!\n");
+        exit(EXIT_FAILURE);
+    }
 
-//     GLint max_renderbuffer_size;
-//     glGetIntegerv(GL_MAX_RENDERBUFFER_SIZE, &max_renderbuffer_size); 
-//     if (P > max_renderbuffer_size) {
-//         std::cerr << "number of particles (" << P << ") larger than renderbuffer size (" << max_renderbuffer_size << ")" << std::endl;
-//         exit(EXIT_FAILURE);
-//     }
-// }
+    GLint max_renderbuffer_size;
+    glGetIntegerv(GL_MAX_RENDERBUFFER_SIZE, &max_renderbuffer_size); 
+    if (P > max_renderbuffer_size) {
+        std::cerr << "number of particles (" << P << ") larger than renderbuffer size (" << max_renderbuffer_size << ")" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+}

@@ -9,6 +9,8 @@ const GLchar* positionFragmentShaderSource = R"(
 layout(pixel_center_integer) in vec4 gl_FragCoord;
 out vec4 out_position;
 
+in float VertexID;
+
 uniform float window_width;
 uniform float window_height;
 uniform int epoch_counter;
@@ -27,7 +29,8 @@ void main() {
     int i = int(gl_FragCoord.x); // Index of the particle
     vec2 position = vec2(texelFetch(position_buffer, i, 0)); // previous position
     vec2 delta_position = vec2(0,0);
-    delta_position += random(position.xy + epoch_counter); // diffusion
+    // delta_position += random(vec2(0,0) + VertexID + epoch_counter);
+    delta_position += random(position.xy + epoch_counter + VertexID); // diffusion
     delta_position += +vec2(1.0, 1.0); // drift
 
     vec2 new_position = position.xy+delta_position.xy;
