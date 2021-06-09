@@ -21,11 +21,13 @@ const bool fullscreen = false;
 int whichMonitor = 1;
 
 // Textures and framebuffers
-GLuint textures[3];
-GLuint framebuffers[3];
+GLuint textures[5];
+GLuint framebuffers[5];
 const int densityMapIndex = 0;
 const int positionBufferIndex1 = 1;
 const int positionBufferIndex2 = 2;
+const int velocityBufferIndex1 = 3;
+const int velocityBufferIndex2 = 4;
 
 // Screen shader
 GLuint screenRenderingShader;
@@ -56,6 +58,13 @@ extern const GLchar* positionFragmentShaderSource;
 #include "position.vert"
 #include "position.frag"
 
+// Velocity shader
+GLuint velocityShader;
+extern const GLchar* velocityVertexShaderSource;
+extern const GLchar* velocityFragmentShaderSource;
+#include "velocity.vert"
+#include "velocity.frag"
+
 // Particles
 // const int P = 100;
 // const int P = 5000;
@@ -65,6 +74,7 @@ void window_setup();
 void shader_setup();
 void updateShaderWidthHeightUniforms(int width, int height);
 void allocateDensityBuffer(int densityMapIndex);
+void allocatePhysicsBuffer(const int index, const char* data);
 
 //========================================
 //                                        
@@ -114,18 +124,13 @@ int main() {
     updateShaderWidthHeightUniforms(width, height);
 
     // Initalise textures and the associated framebuffers
-    glGenTextures(3, textures);
-    glGenFramebuffers(3, framebuffers);
+    glGenTextures(5, textures);
+    glGenFramebuffers(5, framebuffers);
 
     // Texture 0 - Density map
     allocateDensityBuffer(densityMapIndex);
 
-    // Texture 1 - Position buffer 1
-    glActiveTexture(GL_TEXTURE0 + positionBufferIndex1);
-    glBindTexture(GL_TEXTURE_1D, textures[positionBufferIndex1]);
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
+    // Texture 1 - Position buffer 1    
     float margin = glm::min(width,height)*0.05;
     float noise_seed = 10*glfwGetTime() + glm::linearRand<float>(0, 1);
     std::array<glm::vec2, P> positions;
@@ -141,36 +146,14 @@ int main() {
         position *= ( glm::vec2( width, height ) - 2*margin );
         position += margin;
     }
-    glTexImage1D(GL_TEXTURE_1D, 0, GL_RG32F, P, 0, GL_RG, GL_FLOAT, positions.data());
+    allocatePhysicsBuffer(positionBufferIndex1, (const char*) positions.data());
 
-    // Bind the position map to a frame buffer
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[positionBufferIndex1]);
-    glFramebufferTexture1D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_1D, textures[positionBufferIndex1], 0);
-    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-        fprintf(stderr, "ERROR::FRAMEBUFFER:: Framebuffer is not complete!\n");
-        exit(EXIT_FAILURE);
-    }
-
-    // Texture 2 - position buffer 2
-    glActiveTexture(GL_TEXTURE0 + positionBufferIndex2);
-    glBindTexture(GL_TEXTURE_1D, textures[positionBufferIndex2]);
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    std::array<glm::vec2, P> positions2;
-    for (glm::vec2& position : positions2) {
-        // position = glm::vec2( glm::linearRand<float>(0, 1), glm::linearRand<float>(0, 1) );
-        position = glm::vec2(0,0);
-    }
-    glTexImage1D(GL_TEXTURE_1D, 0, GL_RG32F, P, 0, GL_RG, GL_FLOAT, positions2.data());
-
-    // Bind the velocity map to a frame buffer
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[positionBufferIndex2]);
-    glFramebufferTexture1D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_1D, textures[positionBufferIndex2], 0);
-    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-        fprintf(stderr, "ERROR::FRAMEBUFFER:: Framebuffer is not complete!\n");
-        exit(EXIT_FAILURE);
-    }
+    // Texture 2,3,4 - position buffer 2, velocity buffer 1 and 2
+    std::array<glm::vec2, P> emptyPhysicsBuffer;
+    for (glm::vec2& position : emptyPhysicsBuffer) { position = glm::vec2(0,0); }
+    allocatePhysicsBuffer(positionBufferIndex2, (const char*) emptyPhysicsBuffer.data());
+    allocatePhysicsBuffer(velocityBufferIndex1, (const char*) emptyPhysicsBuffer.data());
+    allocatePhysicsBuffer(velocityBufferIndex2, (const char*) emptyPhysicsBuffer.data());
 
     // Tell shader about the positions of the textures
     glUseProgram(screenRenderingShader);
@@ -181,9 +164,13 @@ int main() {
     glUniform1f(glGetUniformLocation(densityMapShader, "density_alpha"), densityAlpha);
     glUniform1f(glGetUniformLocation(densityMapShader, "kernel_radius"), kernelRadius);
 
+    // Position and velocity double buffer pointers
     int currentPositionBuffer = positionBufferIndex1; // Start by using buffer 1
     int otherPositionBuffer = positionBufferIndex2;
+    int currentVelocityBuffer = velocityBufferIndex1;
+    int otherVelocityBuffer = velocityBufferIndex2;
 
+    // Loop counter passed to the shaders for use in random()
     int epoch_counter = 0;
 
     // Physics timing preamble
@@ -193,10 +180,21 @@ int main() {
     while (!glfwWindowShouldClose(window)) {
 
         otherPositionBuffer = currentPositionBuffer == positionBufferIndex1 ? positionBufferIndex2 : positionBufferIndex1;
+        otherVelocityBuffer = currentVelocityBuffer == velocityBufferIndex1 ? velocityBufferIndex2 : velocityBufferIndex1;
 
-        // TODO:
-        // velocity double buffer
+        // Velocity pass
+        glUseProgram(velocityShader);
+        glUniform1i(glGetUniformLocation(velocityShader, "velocity_buffer"), currentVelocityBuffer);
+        glUniform1i(glGetUniformLocation(velocityShader, "epoch_counter"), epoch_counter);
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[otherVelocityBuffer]);
+        glViewport(0, 0, P, 1);
+        DEBUG_printPositionTexture("other fb before");
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        DEBUG_printPositionTexture("other fb after");
 
+        exit(1);
+
+        // Position pass
         glUseProgram(positionShader);
         glUniform1i(glGetUniformLocation(positionShader, "position_buffer"), currentPositionBuffer);
         glUniform1i(glGetUniformLocation(positionShader, "epoch_counter"), epoch_counter);
@@ -241,8 +239,9 @@ int main() {
         glfwPollEvents();
         // std::cout << "poll events time: " << (glfwGetTime()-poll_events_start)*1000 << "ms" << std::endl;
 
-        // Swap position buffers
+        // Swap double buffers
         currentPositionBuffer = otherPositionBuffer;
+        currentVelocityBuffer = otherVelocityBuffer;
         epoch_counter++;
     }
 
@@ -402,6 +401,11 @@ void shader_setup() {
     compileAndAttachShader(positionVertexShaderSource, GL_VERTEX_SHADER, positionShader);
     compileAndAttachShader(positionFragmentShaderSource, GL_FRAGMENT_SHADER, positionShader);
     linkShaderProgram(positionShader);
+
+    velocityShader = glCreateProgram();
+    compileAndAttachShader(velocityVertexShaderSource, GL_VERTEX_SHADER, velocityShader);
+    compileAndAttachShader(velocityFragmentShaderSource, GL_FRAGMENT_SHADER, velocityShader);
+    linkShaderProgram(velocityShader);
 }
 
 void updateShaderWidthHeightUniforms(int new_width, int new_height) {
@@ -414,6 +418,7 @@ void updateShaderWidthHeightUniforms(int new_width, int new_height) {
     glUseProgram(positionShader);
     glUniform1f(glGetUniformLocation(positionShader, "window_width"), new_width);
     glUniform1f(glGetUniformLocation(positionShader, "window_height"), new_height);
+    // Velocity shader doesn't use window_width / height uniforms
 }
 
 void allocateDensityBuffer(int densityMapIndex) {
@@ -437,6 +442,20 @@ void allocateDensityBuffer(int densityMapIndex) {
     glGetIntegerv(GL_MAX_RENDERBUFFER_SIZE, &max_renderbuffer_size); 
     if (P > max_renderbuffer_size) {
         std::cerr << "number of particles (" << P << ") larger than renderbuffer size (" << max_renderbuffer_size << ")" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+}
+
+void allocatePhysicsBuffer(const int index, const char* data) {
+    glActiveTexture(GL_TEXTURE0 + index);
+    glBindTexture(GL_TEXTURE_1D, textures[index]);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexImage1D(GL_TEXTURE_1D, 0, GL_RG32F, P, 0, GL_RG, GL_FLOAT, data);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[index]);
+    glFramebufferTexture1D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_1D, textures[index], 0);
+    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        fprintf(stderr, "ERROR::FRAMEBUFFER:: Framebuffer is not complete!\n");
         exit(EXIT_FAILURE);
     }
 }
