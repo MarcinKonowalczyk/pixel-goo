@@ -65,10 +65,13 @@ extern const GLchar* velocityFragmentShaderSource;
 #include "velocity.vert"
 #include "velocity.frag"
 
+const float dragCoefficient = 0.1;
+const float ditherCoefficient = 1.0;
+
 // Particles
 // const int P = 100;
-const int P = 5000;
-// const int P = 16384; // <- render buffer max
+// const int P = 5000;
+const int P = 16384; // <- render buffer max
 
 void window_setup();
 void shader_setup();
@@ -155,7 +158,7 @@ int main() {
     allocatePhysicsBuffer(velocityBufferIndex1, (const char*) emptyPhysicsBuffer.data());
     allocatePhysicsBuffer(velocityBufferIndex2, (const char*) emptyPhysicsBuffer.data());
 
-    // Tell shader about the positions of the textures
+    // Write uniforms to shaders
     glUseProgram(screenRenderingShader);
     glUniform1i(glGetUniformLocation(screenRenderingShader, "density_map"), densityMapIndex);
     glUniform1i(glGetUniformLocation(screenRenderingShader, "density_map_downsampling"), densityMapDownsampling);
@@ -163,6 +166,11 @@ int main() {
     glUniform1i(glGetUniformLocation(densityMapShader, "density_map_downsampling"), densityMapDownsampling);
     glUniform1f(glGetUniformLocation(densityMapShader, "density_alpha"), densityAlpha);
     glUniform1f(glGetUniformLocation(densityMapShader, "kernel_radius"), kernelRadius);
+    glUseProgram(velocityShader);
+    glUniform1f(glGetUniformLocation(velocityShader, "drag_coefficient"), dragCoefficient);
+    glUniform1f(glGetUniformLocation(velocityShader, "dither_coefficient"), ditherCoefficient);
+    glUniform1i(glGetUniformLocation(velocityShader, "density_map"), densityMapIndex);
+    glUniform1i(glGetUniformLocation(velocityShader, "density_map_downsampling"), densityMapDownsampling);
 
     // Position and velocity double buffer pointers
     int currentPositionBuffer = positionBufferIndex1; // Start by using buffer 1
@@ -184,6 +192,7 @@ int main() {
 
         // Velocity pass
         glUseProgram(velocityShader);
+        glUniform1i(glGetUniformLocation(positionShader, "position_buffer"), currentPositionBuffer);
         glUniform1i(glGetUniformLocation(velocityShader, "velocity_buffer"), currentVelocityBuffer);
         glUniform1i(glGetUniformLocation(velocityShader, "epoch_counter"), epoch_counter);
         glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[otherVelocityBuffer]);
@@ -194,8 +203,8 @@ int main() {
 
         // Position pass
         glUseProgram(positionShader);
-        glUniform1i(glGetUniformLocation(positionShader, "velocity_buffer"), otherVelocityBuffer);
         glUniform1i(glGetUniformLocation(positionShader, "position_buffer"), currentPositionBuffer);
+        glUniform1i(glGetUniformLocation(positionShader, "velocity_buffer"), otherVelocityBuffer); // read from updated velocity buffer
         glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[otherPositionBuffer]);
         glViewport(0, 0, P, 1); // Change the viewport to the size of the 1D texture vector
         // glClear(GL_COLOR_BUFFER_BIT); // Dont need to clear it as its writing to each pixel anyway
