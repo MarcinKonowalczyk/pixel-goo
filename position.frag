@@ -13,29 +13,20 @@ in float VertexID;
 
 uniform float window_width;
 uniform float window_height;
-uniform int epoch_counter;
 uniform sampler1D position_buffer;
-
-// Based on:
-// https://thebookofshaders.com/10/
-// http://patriciogonzalezvivo.com
-vec2 random (vec2 seed) {
-    float a = dot(seed.xy,vec2(0.890,0.870));
-    float b = dot(seed.xy,vec2(-0.670,0.570));
-    return 2*fract(sin(vec2(a,b))*43758.5453123)-1;
-}
+uniform sampler1D velocity_buffer;
 
 void main() {
     int i = int(gl_FragCoord.x); // Index of the particle
     vec2 position = vec2(texelFetch(position_buffer, i, 0)); // previous position
-    vec2 delta_position = vec2(0,0);
+    vec2 velocity = vec2(texelFetch(velocity_buffer, i, 0)); // velocity
+    vec2 delta_position = velocity;
     // delta_position += random(vec2(0,0) + VertexID + epoch_counter);
-    delta_position += random(position.xy + epoch_counter + VertexID); // diffusion
-    delta_position += +vec2(1.0, 1.0); // drift
+    // delta_position += +vec2(1.0, 1.0); // drift
 
-    vec2 new_position = position.xy+delta_position.xy;
+    vec2 new_position = position +  delta_position;
     new_position = mod(new_position, vec2(window_width, window_height));
 
-    out_position = vec4(new_position.xy, 0.0, 1.0);
+    out_position = vec4(new_position, 0.0, 1.0);
 }
 )";

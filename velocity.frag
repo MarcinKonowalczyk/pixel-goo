@@ -26,15 +26,29 @@ vec2 random (vec2 seed) {
 void main() {
     int i = int(gl_FragCoord.x); // Index of the particle
     vec2 velocity = vec2(texelFetch(velocity_buffer, i, 0)); // previous velocity
+    float velocity_magnitude = length(velocity);
+    vec2 velocity_normal;
+    if (velocity_magnitude == 0) {
+        velocity_normal = random(vec2(1,0) + VertexID + epoch_counter);
+    } else {
+        velocity_normal = velocity / velocity_magnitude;
+    }
 
-    // Calculate acceleration
+    // Dither
     vec2 delta_velocity = vec2(0,0);
-    delta_velocity += random(vec2(0,0) + VertexID + epoch_counter);
-    // delta_velocity += random(velocity.xy + epoch_counter + VertexID); // diffusion
-    delta_velocity += +vec2(1.0, 1.0); // drift
+    delta_velocity += 1.0*random(vec2(0,0) + VertexID + epoch_counter);
 
-    vec2 new_velocity = velocity.xy + delta_velocity.xy;
+    // Drag
+    float drag_magnitude = min(velocity_magnitude, 1.55);
+    delta_velocity -= drag_magnitude * velocity_normal;
 
-    out_velocity = vec4(new_velocity.xy, 0.0, 1.0);
+
+    // delta_velocity += random(velocity + epoch_counter + VertexID); // diffusion
+    // Drift
+    delta_velocity += vec2(1.0, 1.0);
+
+    vec2 new_velocity = velocity + delta_velocity;
+
+    out_velocity = vec4(new_velocity, 0.0, 1.0);
 }
 )";

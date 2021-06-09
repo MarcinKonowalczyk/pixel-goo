@@ -67,8 +67,8 @@ extern const GLchar* velocityFragmentShaderSource;
 
 // Particles
 // const int P = 100;
-// const int P = 5000;
-const int P = 16384; // <- render buffer max
+const int P = 5000;
+// const int P = 16384; // <- render buffer max
 
 void window_setup();
 void shader_setup();
@@ -188,16 +188,14 @@ int main() {
         glUniform1i(glGetUniformLocation(velocityShader, "epoch_counter"), epoch_counter);
         glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[otherVelocityBuffer]);
         glViewport(0, 0, P, 1);
-        DEBUG_printPositionTexture("other fb before");
+        // DEBUG_printPositionTexture("other fb before");
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-        DEBUG_printPositionTexture("other fb after");
-
-        exit(1);
+        // DEBUG_printPositionTexture("other fb after");
 
         // Position pass
         glUseProgram(positionShader);
+        glUniform1i(glGetUniformLocation(positionShader, "velocity_buffer"), otherVelocityBuffer);
         glUniform1i(glGetUniformLocation(positionShader, "position_buffer"), currentPositionBuffer);
-        glUniform1i(glGetUniformLocation(positionShader, "epoch_counter"), epoch_counter);
         glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[otherPositionBuffer]);
         glViewport(0, 0, P, 1); // Change the viewport to the size of the 1D texture vector
         // glClear(GL_COLOR_BUFFER_BIT); // Dont need to clear it as its writing to each pixel anyway
