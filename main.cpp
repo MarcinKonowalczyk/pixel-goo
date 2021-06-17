@@ -66,7 +66,7 @@ extern const GLchar* velocityFragmentShaderSource;
 #include "velocity.frag"
 
 const float dragCoefficient = 0.1;
-const float ditherCoefficient = 0.11;
+const float ditherCoefficient = 0.7;
 
 // Particles
 // const int P = 100;
@@ -172,6 +172,12 @@ int main() {
     glUniform1i(glGetUniformLocation(velocityShader, "density_map"), densityMapIndex);
     glUniform1i(glGetUniformLocation(velocityShader, "density_map_downsampling"), densityMapDownsampling);
 
+    double xpos; double ypos;
+    glfwGetCursorPos(window, &xpos, &ypos);
+    float mouse_position[] = {(float)xpos, (float)ypos};
+    glUseProgram(velocityShader);
+    glUniform2fv(glGetUniformLocation(velocityShader, "mouse_position"), 1, mouse_position);
+
     // Position and velocity double buffer pointers
     int currentPositionBuffer = positionBufferIndex1; // Start by using buffer 1
     int otherPositionBuffer = positionBufferIndex2;
@@ -190,8 +196,13 @@ int main() {
         otherPositionBuffer = currentPositionBuffer == positionBufferIndex1 ? positionBufferIndex2 : positionBufferIndex1;
         otherVelocityBuffer = currentVelocityBuffer == velocityBufferIndex1 ? velocityBufferIndex2 : velocityBufferIndex1;
 
+        // Poll mouse position
+        glfwGetCursorPos(window, &xpos, &ypos);
+        float mouse_position[] = {(float)xpos, (float)ypos};
+
         // Velocity pass
         glUseProgram(velocityShader);
+        glUniform2fv(glGetUniformLocation(velocityShader, "mouse_position"), 1, mouse_position);
         glUniform1i(glGetUniformLocation(positionShader, "position_buffer"), currentPositionBuffer);
         glUniform1i(glGetUniformLocation(velocityShader, "velocity_buffer"), currentVelocityBuffer);
         glUniform1i(glGetUniformLocation(velocityShader, "epoch_counter"), epoch_counter);
@@ -416,18 +427,15 @@ void shader_setup() {
 }
 
 void updateShaderWidthHeightUniforms(int new_width, int new_height) {
+    float window_shape[2] = {(float)new_width, (float)new_height};
     glUseProgram(screenRenderingShader);
-    glUniform1f(glGetUniformLocation(screenRenderingShader, "window_width"), new_width);
-    glUniform1f(glGetUniformLocation(screenRenderingShader, "window_height"), new_height);
+    glUniform2fv(glGetUniformLocation(screenRenderingShader, "window_size"), 1, window_shape);
     glUseProgram(densityMapShader);
-    glUniform1f(glGetUniformLocation(densityMapShader, "window_width"), new_width);
-    glUniform1f(glGetUniformLocation(densityMapShader, "window_height"), new_height);
+    glUniform2fv(glGetUniformLocation(densityMapShader, "window_size"), 1, window_shape);
     glUseProgram(positionShader);
-    glUniform1f(glGetUniformLocation(positionShader, "window_width"), new_width);
-    glUniform1f(glGetUniformLocation(positionShader, "window_height"), new_height);
+    glUniform2fv(glGetUniformLocation(positionShader, "window_size"), 1, window_shape);
     glUseProgram(velocityShader);
-    glUniform1f(glGetUniformLocation(velocityShader, "window_width"), new_width);
-    glUniform1f(glGetUniformLocation(velocityShader, "window_height"), new_height);
+    glUniform2fv(glGetUniformLocation(velocityShader, "window_size"), 1, window_shape);
 }
 
 void allocateDensityBuffer(int densityMapIndex) {

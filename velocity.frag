@@ -11,8 +11,8 @@ out vec4 out_velocity;
 
 uniform sampler2D density_map;
 uniform int density_map_downsampling;
-uniform float window_width;
-uniform float window_height;
+uniform vec2 window_size;
+uniform vec2 mouse_position;
 
 in float VertexID;
 
@@ -31,33 +31,70 @@ vec2 random (vec2 seed) {
     return 2*fract(sin(vec2(a,b))*43758.5453123)-1;
 }
 
+// Helper funciton to sample textures
+// TExtures are smaples from the *bottom* left corner, and in normalised coordinates
+vec2 toNormalisedCoords(vec2 coordinate) {
+    coordinate = mod(coordinate, window_size);
+    return vec2(
+        +coordinate.x/window_size.x,
+        -(coordinate.y/window_size.y)
+        );
+}
+
+#define PI 3.141592653589793
+#define GOLD 1.618033988749895
+
 void main() {
     int i = int(gl_FragCoord.x); // Index of the particle
     vec2 position = vec2(texelFetch(position_buffer, i, 0)); // current position
     vec2 velocity = vec2(texelFetch(velocity_buffer, i, 0)); // previous velocity
-
-    // Sample density map
-    vec2 normalised_position = vec2(
-        +position.x/window_width,
-        -(position.y/window_height)
-        );
-    float density = texture(density_map, normalised_position).x;
-
-    // ivec2 density_map_position = ivec2(position/density_map_downsampling);
-    // float density = texelFetch(density_map, density_map_position, 0).x;
+    float density = texture(density_map, toNormalisedCoords(position)).x;
 
     vec2 new_velocity = velocity;
 
+    // Integrate density over a disk in a radius
+    vec2 density_integral = vec2(0,0);
+    int N = 300;
+    for (int i = 0; i < N; i ++) {
+        // float r = sqrt((i+0.5)/N);
+        float r = (i+0.5)/N;
+        float theta = 2*PI*GOLD * (i+0.5);
+        float phase = PI*random(vec2(0,1) + VertexID + epoch_counter).y;
+        // float phase = 0;
+        vec2 sample_xy = r * vec2( cos(theta+phase), sin(theta+phase) ) * 100;
+        // vec2 sample_xy = vec2(+position.x,-position.y) + sample_delta_xy;
+
+
+        float density_sample = texture(density_map, toNormalisedCoords(position + sample_xy)).x;
+        density_integral += density_sample * sample_xy;
+    }
+    new_velocity -= 0.001*density_integral;
+
+    // Mouse repell
+    float mouse_repell_radius = 1000;
+    vec2 mouse_vector = mouse_position-position;
+    float mouse_vector_length = length(mouse_vector);
+    if (mouse_vector_length < 400) {
+        vec2 mouse_vector_normal;
+        if (mouse_vector_length > 0) {
+            mouse_vector_normal = mouse_vector / mouse_vector_length;
+        } else {
+            mouse_vector_normal = random(vec2(0,2) + VertexID + epoch_counter);
+            mouse_vector_normal /= length(mouse_vector_normal);
+        }
+        new_velocity -= (1-(mouse_vector_length/400)) * (1-(mouse_vector_length/400)) * mouse_vector_normal;
+    }
+
     // Dither
-    // new_velocity += dither_coefficient*random(vec2(0,0) + VertexID + epoch_counter);
-    // new_velocity += (1-density) * dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
+    // new_velocity += dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
+    // new_velocity += clamp(1-density,0.2,1.0) * dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
     new_velocity += density * dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
 
 
     // Drift
     // new_velocity += 0.1 * vec2(1.0, 1.0);
     // new_velocity += (1-density) * vec2(1.0, 1.0);
-    new_velocity += density * vec2(3.0, 2.0);
+    // new_velocity += density * vec2(3.0, 2.0);
 
     // Resolve drag after all other acceleration to make sure that very high drag coefficient works
     float velocity_magnitude = length(new_velocity);

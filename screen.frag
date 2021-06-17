@@ -9,19 +9,19 @@ layout(pixel_center_integer) in vec4 gl_FragCoord;
 
 uniform sampler2D density_map;
 uniform int density_map_downsampling;
-uniform float window_width;
-uniform float window_height;
+uniform vec2 window_size;
 
 const vec4 color1 = vec4(0.067f, 0.455f, 0.729f, 1.0f);
-const vec4 color2 = vec4(0.843f, 0.329f, 0.149f, 1.0f);
+// const vec4 color2 = vec4(0.843f, 0.329f, 0.149f, 1.0f);
+const vec4 color2 = vec4(0.925f, 0.69f, 0.208f, 1.0f);
 
 void main() {
     // indices of the particle
 
     vec2 position = gl_FragCoord.xy;
     vec2 normalised_position = vec2(
-        +position.x/window_width,
-        +(position.y/window_height)
+        +position.x/window_size.x,
+        +(position.y/window_size.y)
         );
     float density = texture(density_map, normalised_position).x;
 

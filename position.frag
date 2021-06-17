@@ -11,8 +11,7 @@ out vec4 out_position;
 
 in float VertexID;
 
-uniform float window_width;
-uniform float window_height;
+uniform vec2 window_size;
 uniform sampler1D position_buffer;
 uniform sampler1D velocity_buffer;
 
@@ -25,7 +24,7 @@ void main() {
     // delta_position += +vec2(1.0, 1.0); // drift
 
     vec2 new_position = position +  delta_position;
-    new_position = mod(new_position, vec2(window_width, window_height));
+    new_position = mod(new_position, window_size);
 
     out_position = vec4(new_position, 0.0, 1.0);
 }
