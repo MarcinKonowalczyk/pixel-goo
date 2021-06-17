@@ -47,7 +47,7 @@ const float densityAlpha = 0.05f;
 const float kernelRadius = 30.0f;
 
 // This can be quite a lot because the density map is lerped and particles dither
-const int densityMapDownsampling = 10;
+const int densityMapDownsampling = 20;
 int density_width = width/densityMapDownsampling + 1;
 int density_height = height/densityMapDownsampling + 1;
 
@@ -66,7 +66,7 @@ extern const GLchar* velocityFragmentShaderSource;
 #include "velocity.frag"
 
 const float dragCoefficient = 0.1;
-const float ditherCoefficient = 1.0;
+const float ditherCoefficient = 0.11;
 
 // Particles
 // const int P = 100;
@@ -425,16 +425,20 @@ void updateShaderWidthHeightUniforms(int new_width, int new_height) {
     glUseProgram(positionShader);
     glUniform1f(glGetUniformLocation(positionShader, "window_width"), new_width);
     glUniform1f(glGetUniformLocation(positionShader, "window_height"), new_height);
-    // Velocity shader doesn't use window_width / height uniforms
+    glUseProgram(velocityShader);
+    glUniform1f(glGetUniformLocation(velocityShader, "window_width"), new_width);
+    glUniform1f(glGetUniformLocation(velocityShader, "window_height"), new_height);
 }
 
 void allocateDensityBuffer(int densityMapIndex) {
     glActiveTexture(GL_TEXTURE0 + densityMapIndex);
     glBindTexture(GL_TEXTURE_2D, textures[densityMapIndex]);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, density_width, density_height, 0, GL_RED, GL_FLOAT, NULL);
 
     // Bind the density map to a frame buffer

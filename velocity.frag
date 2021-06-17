@@ -11,6 +11,8 @@ out vec4 out_velocity;
 
 uniform sampler2D density_map;
 uniform int density_map_downsampling;
+uniform float window_width;
+uniform float window_height;
 
 in float VertexID;
 
@@ -34,20 +36,28 @@ void main() {
     vec2 position = vec2(texelFetch(position_buffer, i, 0)); // current position
     vec2 velocity = vec2(texelFetch(velocity_buffer, i, 0)); // previous velocity
 
-    ivec2 density_map_position = ivec2(position/density_map_downsampling);
-    float density = texelFetch(density_map, density_map_position, 0).x;
+    // Sample density map
+    vec2 normalised_position = vec2(
+        +position.x/window_width,
+        -(position.y/window_height)
+        );
+    float density = texture(density_map, normalised_position).x;
+
+    // ivec2 density_map_position = ivec2(position/density_map_downsampling);
+    // float density = texelFetch(density_map, density_map_position, 0).x;
 
     vec2 new_velocity = velocity;
 
     // Dither
     // new_velocity += dither_coefficient*random(vec2(0,0) + VertexID + epoch_counter);
-    new_velocity += (1-density) * dither_coefficient*random(vec2(0,0) + VertexID + epoch_counter);
+    // new_velocity += (1-density) * dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
+    new_velocity += density * dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
 
 
     // Drift
-    // new_velocity += vec2(1.0, 1.0);
+    // new_velocity += 0.1 * vec2(1.0, 1.0);
     // new_velocity += (1-density) * vec2(1.0, 1.0);
-    // new_velocity += density * vec2(1.0, 1.0);
+    new_velocity += density * vec2(3.0, 2.0);
 
     // Resolve drag after all other acceleration to make sure that very high drag coefficient works
     float velocity_magnitude = length(new_velocity);
