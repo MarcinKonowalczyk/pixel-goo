@@ -28,4 +28,5 @@ void main() {
 
     out_position = vec4(new_position, 0.0, 1.0);
 }
+
 )";

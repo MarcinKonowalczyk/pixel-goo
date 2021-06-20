@@ -21,13 +21,15 @@ const bool fullscreen = false;
 int whichMonitor = 1;
 
 // Textures and framebuffers
-GLuint textures[5];
-GLuint framebuffers[5];
+GLuint textures[7];
+GLuint framebuffers[7];
 const int densityMapIndex = 0;
 const int positionBufferIndex1 = 1;
 const int positionBufferIndex2 = 2;
 const int velocityBufferIndex1 = 3;
 const int velocityBufferIndex2 = 4;
+const int trailMapIndex1 = 5;
+const int trailMapIndex2 = 6;
 
 // Screen shader
 GLuint screenRenderingShader;
@@ -68,6 +70,19 @@ extern const GLchar* velocityFragmentShaderSource;
 const float dragCoefficient = 0.1;
 const float ditherCoefficient = 0.7;
 
+// Trail (double) Map
+GLuint trailShader;
+extern const GLchar* trailVertexShaderSource;
+extern const GLchar* trailFragmentShaderSource;
+#include "trail.vert"
+#include "trail.frag"
+// Alpha blending of each of the fragments
+const float trailAlpha = 0.1f;
+const float trailRadius = 30.0f;
+const int trailDownsampling = 20;
+int trail_width = width/trailDownsampling + 1;
+int trail_height = height/trailDownsampling + 1;
+
 // Particles
 // const int P = 100;
 // const int P = 5000;
@@ -76,8 +91,9 @@ const int P = 16384; // <- render buffer max
 void window_setup();
 void shader_setup();
 void updateShaderWidthHeightUniforms(int width, int height);
-void allocateDensityBuffer(int densityMapIndex);
+void allocateMapBuffer(const int mapIndex, const int width, const int height);
 void allocatePhysicsBuffer(const int index, const char* data);
+void saveFrame(const int epoch_counter, unsigned int width, unsigned int height, GLubyte **pixels);
 
 //========================================
 //                                        
@@ -131,7 +147,7 @@ int main() {
     glGenFramebuffers(5, framebuffers);
 
     // Texture 0 - Density map
-    allocateDensityBuffer(densityMapIndex);
+    allocateMapBuffer(densityMapIndex, density_width, density_height);
 
     // Texture 1 - Position buffer 1    
     float margin = glm::min(width,height)*0.05;
@@ -158,6 +174,10 @@ int main() {
     allocatePhysicsBuffer(velocityBufferIndex1, (const char*) emptyPhysicsBuffer.data());
     allocatePhysicsBuffer(velocityBufferIndex2, (const char*) emptyPhysicsBuffer.data());
 
+    // Texture 5,6 - Trail double map
+    allocateMapBuffer(trailMapIndex1, trail_width, trail_height);
+    allocateMapBuffer(trailMapIndex2, trail_width, trail_height);
+
     // Write uniforms to shaders
     glUseProgram(screenRenderingShader);
     glUniform1i(glGetUniformLocation(screenRenderingShader, "density_map"), densityMapIndex);
@@ -171,6 +191,10 @@ int main() {
     glUniform1f(glGetUniformLocation(velocityShader, "dither_coefficient"), ditherCoefficient);
     glUniform1i(glGetUniformLocation(velocityShader, "density_map"), densityMapIndex);
     glUniform1i(glGetUniformLocation(velocityShader, "density_map_downsampling"), densityMapDownsampling);
+    glUseProgram(trailShader);
+    glUniform1i(glGetUniformLocation(trailShader, "trail_map_downsampling"), trailDownsampling);
+    glUniform1f(glGetUniformLocation(trailShader, "trail_alpha"), trailAlpha);
+    glUniform1f(glGetUniformLocation(trailShader, "kernel_radius"), trailRadius);
 
     double xpos; double ypos;
     glfwGetCursorPos(window, &xpos, &ypos);
@@ -183,6 +207,8 @@ int main() {
     int otherPositionBuffer = positionBufferIndex2;
     int currentVelocityBuffer = velocityBufferIndex1;
     int otherVelocityBuffer = velocityBufferIndex2;
+    int currentTrailMap = trailMapIndex1;
+    int otherTrailMap = trailMapIndex2;
 
     // Loop counter passed to the shaders for use in random()
     int epoch_counter = 0;
@@ -191,10 +217,13 @@ int main() {
     float exp_average_flip_time = 0.0f;
     float alpha_flip_time = 0.1;
 
+    GLubyte* pixels = nullptr;
+
     while (!glfwWindowShouldClose(window)) {
 
         otherPositionBuffer = currentPositionBuffer == positionBufferIndex1 ? positionBufferIndex2 : positionBufferIndex1;
         otherVelocityBuffer = currentVelocityBuffer == velocityBufferIndex1 ? velocityBufferIndex2 : velocityBufferIndex1;
+        otherTrailMap = currentTrailMap == trailMapIndex1 ? trailMapIndex2 : trailMapIndex1;
 
         // Poll mouse position
         glfwGetCursorPos(window, &xpos, &ypos);
@@ -229,12 +258,27 @@ int main() {
         glClear(GL_COLOR_BUFFER_BIT);
         glDrawArrays(GL_POINTS, 0, P);
 
+        // Trail map pass
+        glUseProgram(trailShader);
+        glUniform1i(glGetUniformLocation(trailShader, "trail_map"), otherTrailMap);
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[currentTrailMap]);
+        glViewport(0, 0, trail_width, trail_height);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glDrawArrays(GL_POINTS, 0, P);
+
         // Screen rendering pass
-        glUseProgram(screenRenderingShader);
-        glUniform1i(glGetUniformLocation(screenRenderingShader, "position_buffer"), otherPositionBuffer);
+        // glUseProgram(screenRenderingShader);
+        // glUniform1i(glGetUniformLocation(screenRenderingShader, "position_buffer"), otherPositionBuffer);
+
         // glUseProgram(densityMapShader);
         // glUniform1i(glGetUniformLocation(densityMapShader, "density_map_downsampling"), 1); // Turn off downsampling to render points on screen
         // glUniform1i(glGetUniformLocation(densityMapShader, "position_buffer"), otherPositionBuffer);
+
+        glUseProgram(trailShader);
+        glUniform1i(glGetUniformLocation(trailShader, "trail_map_downsampling"), 1); // Turn off downsampling to render points on screen
+        glUniform1i(glGetUniformLocation(trailShader, "position_buffer"), otherPositionBuffer);
+        glUniform1i(glGetUniformLocation(trailShader, "velocity_buffer"), otherVelocityBuffer);
+
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glViewport(0, 0, width, height);
         glClear(GL_COLOR_BUFFER_BIT);
@@ -246,12 +290,15 @@ int main() {
         // Swap draw and screen buffer
         glfwSwapBuffers(window);
 
+        // Save frame
+        // saveFrame(epoch_counter, width, height, &pixels);
+
         // Flip timing end
         float delta_flip_time = (glfwGetTime()-flip_buffer_start)*1000;
         exp_average_flip_time == 0.0f
             ? exp_average_flip_time = delta_flip_time
             : exp_average_flip_time = alpha_flip_time*delta_flip_time + (1-alpha_flip_time)*exp_average_flip_time;
-        std::cout << "buffer flip time: " << exp_average_flip_time << "ms" << std::endl;
+        std::cout << "epoch: " << epoch_counter << " buffer flip time: " << exp_average_flip_time << "ms" << std::endl;
 
         // float poll_events_start = glfwGetTime();
         glfwPollEvents();
@@ -260,10 +307,12 @@ int main() {
         // Swap double buffers
         currentPositionBuffer = otherPositionBuffer;
         currentVelocityBuffer = otherVelocityBuffer;
+        currentTrailMap = otherTrailMap;
         epoch_counter++;
     }
 
     // Clean up
+    free(pixels);
     glBindVertexArray(0);
     glfwDestroyWindow(window);
     glfwTerminate();
@@ -342,7 +391,11 @@ void window_setup() {
         updateShaderWidthHeightUniforms(width, height);
         density_width = width/densityMapDownsampling + 1;
         density_height = height/densityMapDownsampling + 1;
-        allocateDensityBuffer(densityMapIndex);
+        allocateMapBuffer(densityMapIndex, density_width, density_height);
+        trail_width = width/trailDownsampling + 1;
+        trail_height = height/trailDownsampling + 1;
+        allocateMapBuffer(trailMapIndex1, trail_width, trail_height);
+        allocateMapBuffer(trailMapIndex2, trail_width, trail_height);
     });
 
     glfwSetKeyCallback(window, [](GLFWwindow* window, int key, int scancode, int action, int mods) {
@@ -351,8 +404,8 @@ void window_setup() {
             if (key == GLFW_KEY_ESCAPE) {glfwSetWindowShouldClose(window, true);}
         }
     });
-    // GLAD
 
+    // GLAD
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
         fprintf(stderr, "Failed to initialize GLAD\n");
         exit(EXIT_FAILURE);
@@ -424,6 +477,11 @@ void shader_setup() {
     compileAndAttachShader(velocityVertexShaderSource, GL_VERTEX_SHADER, velocityShader);
     compileAndAttachShader(velocityFragmentShaderSource, GL_FRAGMENT_SHADER, velocityShader);
     linkShaderProgram(velocityShader);
+
+    trailShader = glCreateProgram();
+    compileAndAttachShader(trailVertexShaderSource, GL_VERTEX_SHADER, trailShader);
+    compileAndAttachShader(trailFragmentShaderSource, GL_FRAGMENT_SHADER, trailShader);
+    linkShaderProgram(trailShader);
 }
 
 void updateShaderWidthHeightUniforms(int new_width, int new_height) {
@@ -436,22 +494,24 @@ void updateShaderWidthHeightUniforms(int new_width, int new_height) {
     glUniform2fv(glGetUniformLocation(positionShader, "window_size"), 1, window_shape);
     glUseProgram(velocityShader);
     glUniform2fv(glGetUniformLocation(velocityShader, "window_size"), 1, window_shape);
+    glUseProgram(trailShader);
+    glUniform2fv(glGetUniformLocation(trailShader, "window_size"), 1, window_shape);
 }
 
-void allocateDensityBuffer(int densityMapIndex) {
-    glActiveTexture(GL_TEXTURE0 + densityMapIndex);
-    glBindTexture(GL_TEXTURE_2D, textures[densityMapIndex]);
+void allocateMapBuffer(const int mapIndex, const int width, const int height) {
+    glActiveTexture(GL_TEXTURE0 + mapIndex);
+    glBindTexture(GL_TEXTURE_2D, textures[mapIndex]);
     // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, density_width, density_height, 0, GL_RED, GL_FLOAT, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0, GL_RED, GL_FLOAT, NULL);
 
     // Bind the density map to a frame buffer
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[densityMapIndex]);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textures[densityMapIndex], 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[mapIndex]);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textures[mapIndex], 0);
     if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
         fprintf(stderr, "ERROR::FRAMEBUFFER:: Framebuffer is not complete!\n");
         exit(EXIT_FAILURE);
@@ -477,4 +537,33 @@ void allocatePhysicsBuffer(const int index, const char* data) {
         fprintf(stderr, "ERROR::FRAMEBUFFER:: Framebuffer is not complete!\n");
         exit(EXIT_FAILURE);
     }
+}
+
+void saveFrame(const int epoch_counter, unsigned int width, unsigned int height, GLubyte** pixels) {
+
+    // Construct filename
+    std::string epoch_string = "";
+    if (epoch_counter <= 9999) {epoch_string += "0";};
+    if (epoch_counter <= 999) {epoch_string += "0";};
+    if (epoch_counter <= 99) {epoch_string += "0";};
+    if (epoch_counter <= 9) {epoch_string += "0";};
+    epoch_string += std::to_string(epoch_counter);
+    std::string filename = "./frames/" + epoch_string + ".png";
+
+    size_t i, j, cur;
+    const size_t format_nchannels = 3;
+
+    FILE *f = fopen(filename.c_str(), "w");
+    fprintf(f, "P3\n%d %d\n%d\n", width, height, 255);
+    // fprintf(f, "BM\n%d %d\n%d\n", width, height, 255);
+    *pixels = (GLubyte*) realloc(*pixels, format_nchannels * sizeof(GLubyte) * width * height);
+    glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, *pixels);
+    for (i = 0; i < height; i++) {
+        for (j = 0; j < width; j++) {
+            cur = format_nchannels * ((height - i - 1) * width + j);
+            fprintf(f, "%3d %3d %3d ", (*pixels)[cur], (*pixels)[cur + 1], (*pixels)[cur + 2]);
+        }
+        fprintf(f, "\n");
+    }
+    fclose(f);
 }

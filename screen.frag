@@ -13,7 +13,7 @@ uniform vec2 window_size;
 
 const vec4 color1 = vec4(0.067f, 0.455f, 0.729f, 1.0f);
 // const vec4 color2 = vec4(0.843f, 0.329f, 0.149f, 1.0f);
-const vec4 color2 = vec4(0.925f, 0.69f, 0.208f, 1.0f);
+const vec4 color2 = vec4(0.925f, 0.69f, 0.208f, 0.8f);
 
 void main() {
     // indices of the particle

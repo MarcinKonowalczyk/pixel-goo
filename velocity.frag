@@ -57,21 +57,22 @@ void main() {
     int N = 300;
     for (int i = 0; i < N; i ++) {
         // float r = sqrt((i+0.5)/N);
-        float r = (i+0.5)/N;
+        float r = (i+0.5)/N * (i+0.5)/N;
+        // float r = (i+0.5)/N;
         float theta = 2*PI*GOLD * (i+0.5);
         float phase = PI*random(vec2(0,1) + VertexID + epoch_counter).y;
         // float phase = 0;
         vec2 sample_xy = r * vec2( cos(theta+phase), sin(theta+phase) ) * 100;
         // vec2 sample_xy = vec2(+position.x,-position.y) + sample_delta_xy;
 
-
         float density_sample = texture(density_map, toNormalisedCoords(position + sample_xy)).x;
         density_integral += density_sample * sample_xy;
     }
+    // new_velocity -= 0.09*density_integral;
     new_velocity -= 0.001*density_integral;
 
     // Mouse repell
-    float mouse_repell_radius = 1000;
+    const float mouse_repell_radius = 1000;
     vec2 mouse_vector = mouse_position-position;
     float mouse_vector_length = length(mouse_vector);
     if (mouse_vector_length < 400) {
@@ -94,9 +95,10 @@ void main() {
     // Drift
     // new_velocity += 0.1 * vec2(1.0, 1.0);
     // new_velocity += (1-density) * vec2(1.0, 1.0);
-    // new_velocity += density * vec2(3.0, 2.0);
+    // new_velocity += density * 0.1 * vec2(3.0, 2.0);
 
     // Resolve drag after all other acceleration to make sure that very high drag coefficient works
+    float old_velocity_magnitude = length(velocity);
     float velocity_magnitude = length(new_velocity);
     vec2 velocity_normal;
     if (velocity_magnitude == 0) { // Return random nomral if magnitude is zero
@@ -106,11 +108,17 @@ void main() {
         velocity_normal = new_velocity / velocity_magnitude;
     }
 
-    float drag_magnitude = drag_coefficient * velocity_magnitude * velocity_magnitude;
+    // float drag_magnitude = drag_coefficient * velocity_magnitude * velocity_magnitude;
+    float drag_magnitude = drag_coefficient * old_velocity_magnitude * old_velocity_magnitude;
+
     // float drag_magnitude = density * drag_coefficient * velocity_magnitude * velocity_magnitude;
     // float drag_magnitude = (1-density) * drag_coefficient * velocity_magnitude * velocity_magnitude;
     drag_magnitude = min(velocity_magnitude, drag_magnitude); // Cap drag as to not push particles the other way
     new_velocity -= drag_magnitude * velocity_normal;
+
+    if (any(isnan(new_velocity)) || any(isinf(new_velocity))) {
+        new_velocity = vec2(0,0);
+    }
 
     out_velocity = vec4(new_velocity, 0.0, 1.0);
 }
