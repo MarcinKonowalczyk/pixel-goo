@@ -11,9 +11,12 @@ out vec4 out_velocity;
 
 uniform sampler2D density_map;
 uniform int density_map_downsampling;
-uniform vec2 window_size;
-uniform vec2 mouse_position;
 
+uniform sampler2D trail_map;
+uniform int trail_map_downsampling;
+
+uniform vec2 mouse_position;
+uniform vec2 window_size;
 in float VertexID;
 
 uniform int epoch_counter;

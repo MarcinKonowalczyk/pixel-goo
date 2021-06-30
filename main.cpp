@@ -45,7 +45,8 @@ extern const GLchar* densityFragmentShaderSource;
 #include "density.vert"
 #include "density.frag"
 // Alpha blending of each of the fragments
-const float densityAlpha = 0.05f;
+// const float densityAlpha = 0.05f;
+const float densityAlpha = 0.5f;
 const float kernelRadius = 30.0f;
 
 // This can be quite a lot because the density map is lerped and particles dither
@@ -71,17 +72,23 @@ const float dragCoefficient = 0.1;
 const float ditherCoefficient = 0.7;
 
 // Trail (double) Map
-GLuint trailShader;
-extern const GLchar* trailVertexShaderSource;
-extern const GLchar* trailFragmentShaderSource;
-#include "trail.vert"
-#include "trail.frag"
+GLuint trailFirstShader;
+extern const GLchar* trailFirstVertexShaderSource;
+extern const GLchar* trailFirstFragmentShaderSource;
+#include "trail_first.vert"
+#include "trail_first.frag"
+GLuint trailSecondShader;
+extern const GLchar* trailSecondVertexShaderSource;
+extern const GLchar* trailSecondFragmentShaderSource;
+#include "trail_second.vert"
+#include "trail_second.frag"
 // Alpha blending of each of the fragments
-const float trailAlpha = 0.1f;
+const float trailIntensity = 0.05f;
+const float trailAlpha = 0.95f;
 const float trailRadius = 30.0f;
-const int trailDownsampling = 20;
-int trail_width = width/trailDownsampling + 1;
-int trail_height = height/trailDownsampling + 1;
+const int trailMapDownsampling = 2;
+int trail_width = width/trailMapDownsampling + 1;
+int trail_height = height/trailMapDownsampling + 1;
 
 // Particles
 // const int P = 100;
@@ -143,8 +150,8 @@ int main() {
     updateShaderWidthHeightUniforms(width, height);
 
     // Initalise textures and the associated framebuffers
-    glGenTextures(5, textures);
-    glGenFramebuffers(5, framebuffers);
+    glGenTextures(7, textures);
+    glGenFramebuffers(7, framebuffers);
 
     // Texture 0 - Density map
     allocateMapBuffer(densityMapIndex, density_width, density_height);
@@ -191,10 +198,13 @@ int main() {
     glUniform1f(glGetUniformLocation(velocityShader, "dither_coefficient"), ditherCoefficient);
     glUniform1i(glGetUniformLocation(velocityShader, "density_map"), densityMapIndex);
     glUniform1i(glGetUniformLocation(velocityShader, "density_map_downsampling"), densityMapDownsampling);
-    glUseProgram(trailShader);
-    glUniform1i(glGetUniformLocation(trailShader, "trail_map_downsampling"), trailDownsampling);
-    glUniform1f(glGetUniformLocation(trailShader, "trail_alpha"), trailAlpha);
-    glUniform1f(glGetUniformLocation(trailShader, "kernel_radius"), trailRadius);
+    glUniform1i(glGetUniformLocation(velocityShader, "trail_map_downsampling"), trailMapDownsampling);
+    glUseProgram(trailFirstShader);
+    glUniform1f(glGetUniformLocation(trailFirstShader, "alpha"), trailAlpha);
+    glUseProgram(trailSecondShader);
+    glUniform1i(glGetUniformLocation(trailSecondShader, "trail_map_downsampling"), trailMapDownsampling);
+    glUniform1f(glGetUniformLocation(trailSecondShader, "trail_intensity"), trailIntensity);
+    glUniform1f(glGetUniformLocation(trailSecondShader, "kernel_radius"), trailRadius);
 
     double xpos; double ypos;
     glfwGetCursorPos(window, &xpos, &ypos);
@@ -234,6 +244,7 @@ int main() {
         glUniform2fv(glGetUniformLocation(velocityShader, "mouse_position"), 1, mouse_position);
         glUniform1i(glGetUniformLocation(positionShader, "position_buffer"), currentPositionBuffer);
         glUniform1i(glGetUniformLocation(velocityShader, "velocity_buffer"), currentVelocityBuffer);
+        glUniform1i(glGetUniformLocation(velocityShader, "trail_map"), currentTrailMap);
         glUniform1i(glGetUniformLocation(velocityShader, "epoch_counter"), epoch_counter);
         glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[otherVelocityBuffer]);
         glViewport(0, 0, P, 1);
@@ -257,14 +268,21 @@ int main() {
         glViewport(0, 0, density_width, density_height);
         glClear(GL_COLOR_BUFFER_BIT);
         glDrawArrays(GL_POINTS, 0, P);
-
-        // Trail map pass
-        glUseProgram(trailShader);
-        glUniform1i(glGetUniformLocation(trailShader, "trail_map"), otherTrailMap);
+        
+        // Trail map
         glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[currentTrailMap]);
         glViewport(0, 0, trail_width, trail_height);
         glClear(GL_COLOR_BUFFER_BIT);
+
+        glUseProgram(trailFirstShader); // First pass (alpha blend of the double buffer)
+        glUniform1f(glGetUniformLocation(trailFirstShader, "alpha"), trailAlpha);
+        glUniform1i(glGetUniformLocation(trailFirstShader, "previous_trail_map"), otherTrailMap);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4); // Need to only write 4 points since vertex shader makes them into a quad over the entire screen anyway
+        glUseProgram(trailSecondShader); // Second pass
+        glUniform1i(glGetUniformLocation(trailSecondShader, "position_buffer"), otherPositionBuffer);
+        glUniform1i(glGetUniformLocation(trailSecondShader, "velocity_buffer"), otherVelocityBuffer);
         glDrawArrays(GL_POINTS, 0, P);
+
 
         // Screen rendering pass
         // glUseProgram(screenRenderingShader);
@@ -274,15 +292,16 @@ int main() {
         // glUniform1i(glGetUniformLocation(densityMapShader, "density_map_downsampling"), 1); // Turn off downsampling to render points on screen
         // glUniform1i(glGetUniformLocation(densityMapShader, "position_buffer"), otherPositionBuffer);
 
-        glUseProgram(trailShader);
-        glUniform1i(glGetUniformLocation(trailShader, "trail_map_downsampling"), 1); // Turn off downsampling to render points on screen
-        glUniform1i(glGetUniformLocation(trailShader, "position_buffer"), otherPositionBuffer);
-        glUniform1i(glGetUniformLocation(trailShader, "velocity_buffer"), otherVelocityBuffer);
+        glUseProgram(trailFirstShader);
+        glUniform1i(glGetUniformLocation(trailFirstShader, "previous_trail_map"), currentTrailMap);
+        glUniform1f(glGetUniformLocation(trailFirstShader, "alpha"), 1.0);
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glViewport(0, 0, width, height);
         glClear(GL_COLOR_BUFFER_BIT);
-        glDrawArrays(GL_POINTS, 0, P);
+        // glDrawArrays(GL_POINTS, 0, P);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
 
         // Flip timing start
         float flip_buffer_start = glfwGetTime();
@@ -366,6 +385,8 @@ void window_setup() {
         height = mode->height;
         density_width = width/densityMapDownsampling + 1;
         density_height = height/densityMapDownsampling + 1;
+        trail_width = width/trailMapDownsampling + 1;
+        trail_height = height/trailMapDownsampling + 1;
     } else {
         monitor = nullptr;
     }
@@ -392,8 +413,8 @@ void window_setup() {
         density_width = width/densityMapDownsampling + 1;
         density_height = height/densityMapDownsampling + 1;
         allocateMapBuffer(densityMapIndex, density_width, density_height);
-        trail_width = width/trailDownsampling + 1;
-        trail_height = height/trailDownsampling + 1;
+        trail_width = width/trailMapDownsampling + 1;
+        trail_height = height/trailMapDownsampling + 1;
         allocateMapBuffer(trailMapIndex1, trail_width, trail_height);
         allocateMapBuffer(trailMapIndex2, trail_width, trail_height);
     });
@@ -478,10 +499,15 @@ void shader_setup() {
     compileAndAttachShader(velocityFragmentShaderSource, GL_FRAGMENT_SHADER, velocityShader);
     linkShaderProgram(velocityShader);
 
-    trailShader = glCreateProgram();
-    compileAndAttachShader(trailVertexShaderSource, GL_VERTEX_SHADER, trailShader);
-    compileAndAttachShader(trailFragmentShaderSource, GL_FRAGMENT_SHADER, trailShader);
-    linkShaderProgram(trailShader);
+    trailFirstShader = glCreateProgram();
+    compileAndAttachShader(trailFirstVertexShaderSource, GL_VERTEX_SHADER, trailFirstShader);
+    compileAndAttachShader(trailFirstFragmentShaderSource, GL_FRAGMENT_SHADER, trailFirstShader);
+    linkShaderProgram(trailFirstShader);
+
+    trailSecondShader = glCreateProgram();
+    compileAndAttachShader(trailSecondVertexShaderSource, GL_VERTEX_SHADER, trailSecondShader);
+    compileAndAttachShader(trailSecondFragmentShaderSource, GL_FRAGMENT_SHADER, trailSecondShader);
+    linkShaderProgram(trailSecondShader);
 }
 
 void updateShaderWidthHeightUniforms(int new_width, int new_height) {
@@ -494,8 +520,10 @@ void updateShaderWidthHeightUniforms(int new_width, int new_height) {
     glUniform2fv(glGetUniformLocation(positionShader, "window_size"), 1, window_shape);
     glUseProgram(velocityShader);
     glUniform2fv(glGetUniformLocation(velocityShader, "window_size"), 1, window_shape);
-    glUseProgram(trailShader);
-    glUniform2fv(glGetUniformLocation(trailShader, "window_size"), 1, window_shape);
+    // glUseProgram(trailFirstShader);
+    // glUniform2fv(glGetUniformLocation(trailFirstShader, "window_size"), 1, window_shape);
+    glUseProgram(trailSecondShader);
+    glUniform2fv(glGetUniformLocation(trailSecondShader, "window_size"), 1, window_shape);
 }
 
 void allocateMapBuffer(const int mapIndex, const int width, const int height) {
