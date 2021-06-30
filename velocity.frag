@@ -4,6 +4,10 @@
 const GLchar* velocityFragmentShaderSource = R"(
 #version 330 core
 
+#define PI 3.141592653589793
+#define GOLD 1.618033988749895
+#define MOUSE_REPELL
+
 // Access fragmet coordinates in integer steps
 // TODO: explain more
 layout(pixel_center_integer) in vec4 gl_FragCoord;
@@ -15,7 +19,10 @@ uniform int density_map_downsampling;
 uniform sampler2D trail_map;
 uniform int trail_map_downsampling;
 
+#ifdef MOUSE_REPELL
 uniform vec2 mouse_position;
+#endif
+
 uniform vec2 window_size;
 in float VertexID;
 
@@ -28,15 +35,19 @@ uniform sampler1D velocity_buffer;
 // Based on:
 // https://thebookofshaders.com/10/
 // http://patriciogonzalezvivo.com
-vec2 random (vec2 seed) {
+vec2 random (vec2 seed) { // Random from -1 to +1
     float a = dot(seed.xy,vec2(0.890,0.870));
     float b = dot(seed.xy,vec2(-0.670,0.570));
     return 2*fract(sin(vec2(a,b))*43758.5453123)-1;
 }
 
+float modFloat(float x, float y) {
+    return x - y * floor(x/y);
+}
+
 // Helper funciton to sample textures
 // TExtures are smaples from the *bottom* left corner, and in normalised coordinates
-vec2 toNormalisedCoords(vec2 coordinate) {
+vec2 textureNormalisedCoords(vec2 coordinate) {
     coordinate = mod(coordinate, window_size);
     return vec2(
         +coordinate.x/window_size.x,
@@ -44,41 +55,54 @@ vec2 toNormalisedCoords(vec2 coordinate) {
         );
 }
 
-#define PI 3.141592653589793
-#define GOLD 1.618033988749895
-
-void main() {
-    int i = int(gl_FragCoord.x); // Index of the particle
-    vec2 position = vec2(texelFetch(position_buffer, i, 0)); // current position
-    vec2 velocity = vec2(texelFetch(velocity_buffer, i, 0)); // previous velocity
-    float density = texture(density_map, toNormalisedCoords(position)).x;
-
-    vec2 new_velocity = velocity;
-
-    // Integrate density over a disk in a radius
-    vec2 density_integral = vec2(0,0);
-    int N = 300;
+// Vector Disk Integral over a texture
+vec2 textureVDI(sampler2D textureSampler, vec2 position, float radius, float near_clip, int N) {
+    vec2 integral = vec2(0,0);
     for (int i = 0; i < N; i ++) {
-        // float r = sqrt((i+0.5)/N);
-        float r = (i+0.5)/N * (i+0.5)/N;
-        // float r = (i+0.5)/N;
+        float r = (i+0.5)/N * (i+0.5)/N * (radius-near_clip) + near_clip;;
+        
         float theta = 2*PI*GOLD * (i+0.5);
-        float phase = PI*random(vec2(0,1) + VertexID + epoch_counter).y;
+        float phase = sqrt(r/radius) * PI * random(vec2(0,1) + VertexID + epoch_counter).y;
         // float phase = 0;
-        vec2 sample_xy = r * vec2( cos(theta+phase), sin(theta+phase) ) * 100;
-        // vec2 sample_xy = vec2(+position.x,-position.y) + sample_delta_xy;
+        theta += phase;
 
-        float density_sample = texture(density_map, toNormalisedCoords(position + sample_xy)).x;
-        density_integral += density_sample * sample_xy;
+        vec2 sample_xy = r * vec2( cos(theta), sin(theta) );
+
+        float sample = texture(textureSampler, textureNormalisedCoords(position + sample_xy)).x;
+        integral += sample * sample_xy;
     }
-    // new_velocity -= 0.09*density_integral;
-    new_velocity -= 0.001*density_integral;
+    return integral/N;
+}
 
-    // Mouse repell
-    const float mouse_repell_radius = 1000;
-    vec2 mouse_vector = mouse_position-position;
+// Vector Wedge Integral over a texture
+vec2 textureVWI(sampler2D textureSampler, vec2 position, vec2 velocity, float wedge_angle, float radius, float near_clip, int N) {
+    vec2 integral = vec2(0,0);
+    float wedge_direction = acos(dot(velocity,vec2(1,0))/length(velocity));
+
+    for (int i = 0; i < N; i ++) {
+        float r = (i+0.5)/N * (i+0.5)/N * (radius-near_clip) + near_clip;
+        // float r = sqrt((i+0.5)/N) * (radius-near_clip) + near_clip;
+        
+        float theta = wedge_angle * GOLD * (i+0.5);
+        float phase = sqrt(r/radius) * PI * random(vec2(1,0) + VertexID + epoch_counter).y;
+        // float phase = 0;
+        theta += phase;
+        theta = modFloat(theta,wedge_angle) - wedge_angle/2;
+
+        vec2 sample_xy = r * vec2( cos(theta + wedge_direction), sin(theta + wedge_direction) );
+
+        float sample = texture(textureSampler, textureNormalisedCoords(position + sample_xy)).x;
+        integral += sample * sample_xy;
+    }
+    return integral/N;
+}
+
+// Mouse interaction
+#ifdef MOUSE_REPELL
+vec2 mouseRepell(vec2 mouse_vector, float mouse_repell_radius, float mouse_repell_coefficient) {
+    vec2 repell = vec2(0,0);
     float mouse_vector_length = length(mouse_vector);
-    if (mouse_vector_length < 400) {
+    if (mouse_vector_length < mouse_repell_radius) {
         vec2 mouse_vector_normal;
         if (mouse_vector_length > 0) {
             mouse_vector_normal = mouse_vector / mouse_vector_length;
@@ -86,14 +110,55 @@ void main() {
             mouse_vector_normal = random(vec2(0,2) + VertexID + epoch_counter);
             mouse_vector_normal /= length(mouse_vector_normal);
         }
-        new_velocity -= (1-(mouse_vector_length/400)) * (1-(mouse_vector_length/400)) * mouse_vector_normal;
+        repell = (1-(mouse_vector_length/mouse_repell_radius)) * (1-(mouse_vector_length/mouse_repell_radius)) * mouse_vector_normal;
     }
+    return mouse_repell_coefficient * repell;
+}
+#endif
+
+void main() {
+    int i = int(gl_FragCoord.x); // Index of the particle
+    vec2 position = vec2(texelFetch(position_buffer, i, 0)); // current position
+    vec2 velocity = vec2(texelFetch(velocity_buffer, i, 0)); // previous velocity
+    float density = texture(density_map, textureNormalisedCoords(position)).x;
+
+    vec2 new_velocity = velocity;
+
+    // Integrate density over a disk in a radius
+    vec2 density_integral = textureVDI(density_map, position, 30, 20, 100);
+    new_velocity -= 0.01 * density_integral;
+
+    // Trial integral
+    vec2 trail_integral = textureVWI(trail_map, position, velocity, PI*2/3, 50, 20, 100);
+    // new_velocity += 0.05 * trail_integral;
+    new_velocity += clamp(1-density,0.2,1.0) * 0.1 * trail_integral;
+    // new_velocity += density * 0.1 * trail_integral;
+
+
+    // Mouse repell
+#ifdef MOUSE_REPELL
+    const float mouse_repell_radius = 100;
+    const float mouse_repell_coefficient = 0.5;
+    vec2 mouse_vector = mouse_position - position;
+    new_velocity -= mouseRepell(mouse_vector, mouse_repell_radius, mouse_repell_coefficient);
+
+    // Screen wrap of mouse repell (basically add additional 8 mouse positions)
+    new_velocity -= mouseRepell(mouse_vector + vec2(+window_size.x,0), mouse_repell_radius, mouse_repell_coefficient);
+    new_velocity -= mouseRepell(mouse_vector + vec2(-window_size.x,0), mouse_repell_radius, mouse_repell_coefficient);
+    new_velocity -= mouseRepell(mouse_vector + vec2(0,+window_size.y), mouse_repell_radius, mouse_repell_coefficient);
+    new_velocity -= mouseRepell(mouse_vector + vec2(0,-window_size.y), mouse_repell_radius, mouse_repell_coefficient);
+    new_velocity -= mouseRepell(mouse_vector + vec2(+window_size.x,+window_size.y), mouse_repell_radius, mouse_repell_coefficient);
+    new_velocity -= mouseRepell(mouse_vector + vec2(-window_size.x,+window_size.y), mouse_repell_radius, mouse_repell_coefficient);
+    new_velocity -= mouseRepell(mouse_vector + vec2(+window_size.x,-window_size.y), mouse_repell_radius, mouse_repell_coefficient);
+    new_velocity -= mouseRepell(mouse_vector + vec2(-window_size.x,-window_size.y), mouse_repell_radius, mouse_repell_coefficient);
+#endif
 
     // Dither
     // new_velocity += dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
+    // new_velocity += (1-density) * dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
     // new_velocity += clamp(1-density,0.2,1.0) * dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
-    new_velocity += density * dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
-
+    // new_velocity += 0.1 * density * dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
+    new_velocity += density * density * 2 * dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
 
     // Drift
     // new_velocity += 0.1 * vec2(1.0, 1.0);

@@ -13,8 +13,8 @@
 
 // Window
 GLFWwindow* window;
-int width = 800;
-int height = 600;
+int width = 800; int height = 600;
+// int width = 600; int height = 800;
 const char* title = "Pixel Goo";
 const bool fullscreen = false;
 // const bool fullscreen = true;
@@ -45,8 +45,8 @@ extern const GLchar* densityFragmentShaderSource;
 #include "density.vert"
 #include "density.frag"
 // Alpha blending of each of the fragments
-// const float densityAlpha = 0.05f;
-const float densityAlpha = 0.5f;
+const float densityAlpha = 0.008f;
+// const float densityAlpha = 0.5f;
 const float kernelRadius = 30.0f;
 
 // This can be quite a lot because the density map is lerped and particles dither
@@ -69,7 +69,7 @@ extern const GLchar* velocityFragmentShaderSource;
 #include "velocity.frag"
 
 const float dragCoefficient = 0.1;
-const float ditherCoefficient = 0.7;
+const float ditherCoefficient = 0.8;
 
 // Trail (double) Map
 GLuint trailFirstShader;
@@ -86,7 +86,7 @@ extern const GLchar* trailSecondFragmentShaderSource;
 const float trailIntensity = 0.05f;
 const float trailAlpha = 0.95f;
 const float trailRadius = 30.0f;
-const int trailMapDownsampling = 2;
+const int trailMapDownsampling = 10;
 int trail_width = width/trailMapDownsampling + 1;
 int trail_height = height/trailMapDownsampling + 1;
 
@@ -285,23 +285,22 @@ int main() {
 
 
         // Screen rendering pass
-        // glUseProgram(screenRenderingShader);
-        // glUniform1i(glGetUniformLocation(screenRenderingShader, "position_buffer"), otherPositionBuffer);
+        glUseProgram(screenRenderingShader);
+        glUniform1i(glGetUniformLocation(screenRenderingShader, "position_buffer"), otherPositionBuffer);
 
         // glUseProgram(densityMapShader);
         // glUniform1i(glGetUniformLocation(densityMapShader, "density_map_downsampling"), 1); // Turn off downsampling to render points on screen
         // glUniform1i(glGetUniformLocation(densityMapShader, "position_buffer"), otherPositionBuffer);
 
-        glUseProgram(trailFirstShader);
-        glUniform1i(glGetUniformLocation(trailFirstShader, "previous_trail_map"), currentTrailMap);
-        glUniform1f(glGetUniformLocation(trailFirstShader, "alpha"), 1.0);
+        // glUseProgram(trailFirstShader);
+        // glUniform1i(glGetUniformLocation(trailFirstShader, "previous_trail_map"), currentTrailMap);
+        // glUniform1f(glGetUniformLocation(trailFirstShader, "alpha"), 1.0);
+        // glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glViewport(0, 0, width, height);
         glClear(GL_COLOR_BUFFER_BIT);
-        // glDrawArrays(GL_POINTS, 0, P);
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
+        glDrawArrays(GL_POINTS, 0, P);
 
         // Flip timing start
         float flip_buffer_start = glfwGetTime();
