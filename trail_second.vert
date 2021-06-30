@@ -11,8 +11,9 @@ uniform int trail_map_downsampling;
 uniform float kernel_radius;
 
 uniform sampler1D position_buffer;
+uniform sampler1D velocity_buffer;
 
-out float VertexID;
+out vec2 velocity;
 
 // out float previous_trail;
 // vec2 textureNormalisedCoordinates(vec2 coordinate) {
@@ -27,13 +28,11 @@ vec2 screenNormalisedCoordinates(vec2 coordinate) {
 
 void main() {
     vec2 position = vec2(texelFetch(position_buffer, gl_VertexID, 0));
+    velocity = vec2(texelFetch(velocity_buffer, gl_VertexID, 0));
 
     gl_Position = vec4(screenNormalisedCoordinates(position), 0.0f, 1.0f);
     gl_PointSize = kernel_radius/trail_map_downsampling;
     // gl_PointSize = 10.0f;
-
-    VertexID = gl_VertexID;
-    // vec2 pointVelocity = vec2(texelFetch(velocity_buffer, gl_VertexID, 0));
 }
 
 )";

@@ -45,7 +45,7 @@ extern const GLchar* densityFragmentShaderSource;
 #include "density.vert"
 #include "density.frag"
 // Alpha blending of each of the fragments
-const float densityAlpha = 0.008f;
+const float densityAlpha = 0.01f;
 // const float densityAlpha = 0.5f;
 const float kernelRadius = 30.0f;
 
@@ -289,6 +289,7 @@ int main() {
         // Screen rendering pass
         glUseProgram(screenRenderingShader);
         glUniform1i(glGetUniformLocation(screenRenderingShader, "position_buffer"), otherPositionBuffer);
+        glUniform1i(glGetUniformLocation(screenRenderingShader, "velocity_buffer"), otherVelocityBuffer);
 
         // glUseProgram(densityMapShader);
         // glUniform1i(glGetUniformLocation(densityMapShader, "density_map_downsampling"), 1); // Turn off downsampling to render points on screen

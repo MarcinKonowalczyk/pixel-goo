@@ -5,11 +5,9 @@ const GLchar* trailSecondFragmentShaderSource = R"(
 #version 330 core
 uniform float trail_intensity;
 uniform float velocity_floor;
+in vec2 velocity;
 
-uniform sampler1D velocity_buffer;
 out vec4 color;
-
-in float VertexID; // 'in' cant be an int
 
 #define ISQRT2 0.7071067811865476 // COS PI/4
 #define COSPID8 0.9238795325112867 // COS PI/8
@@ -21,8 +19,6 @@ void main() {
     // https://stackoverflow.com/a/27099691/2531987
     vec2 circCoord = 2.0 * gl_PointCoord.xy - 1.0;
     if (dot(circCoord, circCoord) > 1.0) { discard; }
-
-    vec2 velocity = vec2(texelFetch(velocity_buffer, int(VertexID), 0));
 
     float velocity_magnitude = length(velocity);
 
