@@ -15,12 +15,6 @@ uniform sampler1D velocity_buffer;
 
 out vec2 velocity;
 
-// out float previous_trail;
-// vec2 textureNormalisedCoordinates(vec2 coordinate) {
-//     coordinate = mod(coordinate, window_size);
-//     return vec2(+coordinate.x/window_size.x, -(coordinate.y/window_size.y));
-// }
-
 vec2 screenNormalisedCoordinates(vec2 coordinate) {
     coordinate = mod(coordinate, window_size);
     return vec2(+coordinate.x/(window_size.x/2)-1, -(coordinate.y/(window_size.y/2)-1));

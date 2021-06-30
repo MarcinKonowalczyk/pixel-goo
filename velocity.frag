@@ -45,8 +45,7 @@ float modFloat(float x, float y) {
     return x - y * floor(x/y);
 }
 
-// Helper funciton to sample textures
-// TExtures are smaples from the *bottom* left corner, and in normalised coordinates
+// Textures are smaples from the *bottom* left corner, and in normalised coordinates
 vec2 textureNormalisedCoords(vec2 coordinate) {
     coordinate = mod(coordinate, window_size);
     return vec2(
