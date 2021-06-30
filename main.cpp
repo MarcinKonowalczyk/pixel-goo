@@ -83,10 +83,11 @@ extern const GLchar* trailSecondFragmentShaderSource;
 #include "trail_second.vert"
 #include "trail_second.frag"
 // Alpha blending of each of the fragments
-const float trailIntensity = 0.05f;
-const float trailAlpha = 0.95f;
+const float trailIntensity = 0.1f;
+const float trailAlpha = 0.90f;
 const float trailRadius = 30.0f;
 const int trailMapDownsampling = 10;
+const float trailVelocityFloor = 0.5;
 int trail_width = width/trailMapDownsampling + 1;
 int trail_height = height/trailMapDownsampling + 1;
 
@@ -204,6 +205,7 @@ int main() {
     glUseProgram(trailSecondShader);
     glUniform1i(glGetUniformLocation(trailSecondShader, "trail_map_downsampling"), trailMapDownsampling);
     glUniform1f(glGetUniformLocation(trailSecondShader, "trail_intensity"), trailIntensity);
+    glUniform1f(glGetUniformLocation(trailSecondShader, "velocity_floor"), trailVelocityFloor);
     glUniform1f(glGetUniformLocation(trailSecondShader, "kernel_radius"), trailRadius);
 
     double xpos; double ypos;
@@ -295,12 +297,12 @@ int main() {
         // glUseProgram(trailFirstShader);
         // glUniform1i(glGetUniformLocation(trailFirstShader, "previous_trail_map"), currentTrailMap);
         // glUniform1f(glGetUniformLocation(trailFirstShader, "alpha"), 1.0);
-        // glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glViewport(0, 0, width, height);
         glClear(GL_COLOR_BUFFER_BIT);
         glDrawArrays(GL_POINTS, 0, P);
+        // glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
         // Flip timing start
         float flip_buffer_start = glfwGetTime();

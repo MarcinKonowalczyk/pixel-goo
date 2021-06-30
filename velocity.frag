@@ -125,19 +125,19 @@ void main() {
     vec2 new_velocity = velocity;
 
     // Integrate density over a disk in a radius
-    vec2 density_integral = textureVDI(density_map, position, 30, 20, 100);
+    vec2 density_integral = textureVDI(density_map, position, 30, 10, 100);
     new_velocity -= 0.01 * density_integral;
 
     // Trial integral
-    vec2 trail_integral = textureVWI(trail_map, position, velocity, PI*2/3, 50, 20, 100);
-    // new_velocity += 0.05 * trail_integral;
-    new_velocity += clamp(1-density,0.2,1.0) * 0.1 * trail_integral;
-    // new_velocity += density * 0.1 * trail_integral;
+    vec2 trail_integral = textureVWI(trail_map, position, velocity, PI*0.5, 50, 20, 100);
+    new_velocity += 0.06 * trail_integral;
+    // new_velocity += clamp(1-density,0.2,1.0) * 0.05 * trail_integral;
+    // new_velocity += clamp(density,0.5,1.0) * 0.05 * trail_integral;
 
 
     // Mouse repell
 #ifdef MOUSE_REPELL
-    const float mouse_repell_radius = 100;
+    const float mouse_repell_radius = 200;
     const float mouse_repell_coefficient = 0.5;
     vec2 mouse_vector = mouse_position - position;
     new_velocity -= mouseRepell(mouse_vector, mouse_repell_radius, mouse_repell_coefficient);
@@ -157,7 +157,7 @@ void main() {
     // new_velocity += dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
     // new_velocity += (1-density) * dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
     // new_velocity += clamp(1-density,0.2,1.0) * dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
-    // new_velocity += 0.1 * density * dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
+    // new_velocity += density * dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
     new_velocity += density * density * 2 * dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
 
     // Drift

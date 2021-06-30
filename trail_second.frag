@@ -4,9 +4,9 @@
 const GLchar* trailSecondFragmentShaderSource = R"(
 #version 330 core
 uniform float trail_intensity;
+uniform float velocity_floor;
 
 uniform sampler1D velocity_buffer;
-
 out vec4 color;
 
 in float VertexID; // 'in' cant be an int
@@ -28,7 +28,7 @@ void main() {
 
     vec2 velocity_normal = velocity / velocity_magnitude;
     // if (velocity_magnitude == 0) {discard;}
-    if (velocity_magnitude < 1.0) {discard;}
+    if (velocity_magnitude < velocity_floor) {discard;}
 
     float r = circCoord.x*circCoord.x + circCoord.y*circCoord.y;
     float theta = dot(circCoord.xy,velocity_normal)/length(circCoord);
