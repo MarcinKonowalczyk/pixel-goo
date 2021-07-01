@@ -45,8 +45,8 @@ extern const GLchar* densityFragmentShaderSource;
 #include "density.vert"
 #include "density.frag"
 // Alpha blending of each of the fragments
-const float densityAlpha = 0.01f;
-// const float densityAlpha = 0.5f;
+const float densityAlpha = 0.005f;
+// const float densityAlpha = 0.9f;
 const float kernelRadius = 30.0f;
 
 // This can be quite a lot because the density map is lerped and particles dither
@@ -69,7 +69,7 @@ extern const GLchar* velocityFragmentShaderSource;
 #include "velocity.frag"
 
 const float dragCoefficient = 0.1;
-const float ditherCoefficient = 0.8;
+const float ditherCoefficient = 0.08;
 
 // Trail (double) Map
 GLuint trailFirstShader;
@@ -83,22 +83,28 @@ extern const GLchar* trailSecondFragmentShaderSource;
 #include "trail_second.vert"
 #include "trail_second.frag"
 // Alpha blending of each of the fragments
-const float trailIntensity = 0.1f;
+const float trailIntensity = 0.06f;
 const float trailAlpha = 0.90f;
 const float trailRadius = 30.0f;
 const int trailMapDownsampling = 10;
-const float trailVelocityFloor = 0.5;
+const float trailVelocityFloor = 0.8;
 int trail_width = width/trailMapDownsampling + 1;
 int trail_height = height/trailMapDownsampling + 1;
 
 // Particles
-// const int P = 100;
+// const int P = 11;
 // const int P = 5000;
-const int P = 16384; // <- render buffer max
+// const int P = 16384; // <- render buffer max
+const int P = 100000; // emmmmm...
+// const int P = 200000; // emmmmm...
+
+int physicsBufferWidth; // = P
+int physicsBufferHeight; // P/max_line_width
 
 void window_setup();
 void shader_setup();
-void updateShaderWidthHeightUniforms(int width, int height);
+void updateShaderWindowShape(int width, int height);
+void updateShaderPhysicsBufferShape(int width, int height);
 void allocateMapBuffer(const int mapIndex, const int width, const int height);
 void allocatePhysicsBuffer(const int index, const char* data);
 void saveFrame(const int epoch_counter, unsigned int width, unsigned int height, GLubyte **pixels);
@@ -130,6 +136,7 @@ void DEBUG_printPositionTexture(const char* message, const int N = 3, const int 
 int main() {
     window_setup();
     shader_setup();
+    // buffer_setup();
 
     // Setup vertex array
     std::array<glm::vec2, P> vertices;
@@ -148,7 +155,23 @@ int main() {
     glEnableVertexAttribArray(0); 
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
 
-    updateShaderWidthHeightUniforms(width, height);
+    updateShaderWindowShape(width, height);
+
+    // Calculate size of the physics buffer
+    GLint max_renderbuffer_size;
+    glGetIntegerv(GL_MAX_RENDERBUFFER_SIZE, &max_renderbuffer_size);
+    physicsBufferWidth = ceil(sqrt(P));
+    physicsBufferHeight = ceil(P/sqrt(P));
+    if (physicsBufferWidth > max_renderbuffer_size) {
+        std::cerr << "Physics framebuffer width (" << physicsBufferWidth << ") larger than renderbuffer size (" << max_renderbuffer_size << ")" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    if (physicsBufferHeight > max_renderbuffer_size) {
+        std::cerr << "Physics framebuffer height (" << physicsBufferHeight << ") larger than renderbuffer size (" << max_renderbuffer_size << ")" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    std::cout << "Physics framebuffer shape: (" << physicsBufferWidth << ", " << physicsBufferHeight << ")" << std::endl;
+    updateShaderPhysicsBufferShape(physicsBufferWidth, physicsBufferHeight);
 
     // Initalise textures and the associated framebuffers
     glGenTextures(7, textures);
@@ -249,18 +272,16 @@ int main() {
         glUniform1i(glGetUniformLocation(velocityShader, "trail_map"), currentTrailMap);
         glUniform1i(glGetUniformLocation(velocityShader, "epoch_counter"), epoch_counter);
         glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[otherVelocityBuffer]);
-        glViewport(0, 0, P, 1);
-        // DEBUG_printPositionTexture("other fb before");
+        glViewport(0, 0, physicsBufferWidth, physicsBufferHeight);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-        // DEBUG_printPositionTexture("other fb after");
 
         // Position pass
         glUseProgram(positionShader);
         glUniform1i(glGetUniformLocation(positionShader, "position_buffer"), currentPositionBuffer);
         glUniform1i(glGetUniformLocation(positionShader, "velocity_buffer"), otherVelocityBuffer); // read from updated velocity buffer
         glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[otherPositionBuffer]);
-        glViewport(0, 0, P, 1); // Change the viewport to the size of the 1D texture vector
-        // glClear(GL_COLOR_BUFFER_BIT); // Dont need to clear it as its writing to each pixel anyway
+        glViewport(0, 0, physicsBufferWidth, physicsBufferHeight); // Change the viewport to the size of the 1D texture vector
+        glClear(GL_COLOR_BUFFER_BIT); // Dont need to clear it as its writing to each pixel anyway
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
         // Density map pass
@@ -285,7 +306,6 @@ int main() {
         glUniform1i(glGetUniformLocation(trailSecondShader, "velocity_buffer"), otherVelocityBuffer);
         glDrawArrays(GL_POINTS, 0, P);
 
-
         // Screen rendering pass
         glUseProgram(screenRenderingShader);
         glUniform1i(glGetUniformLocation(screenRenderingShader, "position_buffer"), otherPositionBuffer);
@@ -293,7 +313,7 @@ int main() {
 
         // glUseProgram(densityMapShader);
         // glUniform1i(glGetUniformLocation(densityMapShader, "density_map_downsampling"), 1); // Turn off downsampling to render points on screen
-        // glUniform1i(glGetUniformLocation(densityMapShader, "position_buffer"), otherPositionBuffer);
+        // glUniform1i(glGetUniformLocation(densityMapShader, "position_buffer"), positionBufferIndex1);
 
         // glUseProgram(trailFirstShader);
         // glUniform1i(glGetUniformLocation(trailFirstShader, "previous_trail_map"), currentTrailMap);
@@ -408,10 +428,11 @@ void window_setup() {
     glfwSwapInterval(1); // Enable vsync
     
     glfwSetFramebufferSizeCallback(window, [](GLFWwindow* window, int new_width, int new_height) {
+        std::cout << "glfwSetFramebufferSizeCallback()" << std::endl;
         glViewport(0, 0, new_width, new_height);
         width = new_width;
         height = new_height;
-        updateShaderWidthHeightUniforms(width, height);
+        updateShaderWindowShape(width, height);
         density_width = width/densityMapDownsampling + 1;
         density_height = height/densityMapDownsampling + 1;
         allocateMapBuffer(densityMapIndex, density_width, density_height);
@@ -512,7 +533,7 @@ void shader_setup() {
     linkShaderProgram(trailSecondShader);
 }
 
-void updateShaderWidthHeightUniforms(int new_width, int new_height) {
+void updateShaderWindowShape(int new_width, int new_height) {
     float window_shape[2] = {(float)new_width, (float)new_height};
     glUseProgram(screenRenderingShader);
     glUniform2fv(glGetUniformLocation(screenRenderingShader, "window_size"), 1, window_shape);
@@ -526,6 +547,22 @@ void updateShaderWidthHeightUniforms(int new_width, int new_height) {
     // glUniform2fv(glGetUniformLocation(trailFirstShader, "window_size"), 1, window_shape);
     glUseProgram(trailSecondShader);
     glUniform2fv(glGetUniformLocation(trailSecondShader, "window_size"), 1, window_shape);
+}
+
+void updateShaderPhysicsBufferShape(int new_width, int new_height) {
+    float buffer_shape[2] = {(float)new_width, (float)new_height};
+    glUseProgram(screenRenderingShader);
+    glUniform2fv(glGetUniformLocation(screenRenderingShader, "physics_buffer_size"), 1, buffer_shape);
+    glUseProgram(densityMapShader);
+    glUniform2fv(glGetUniformLocation(densityMapShader, "physics_buffer_size"), 1, buffer_shape);
+    glUseProgram(positionShader);
+    glUniform2fv(glGetUniformLocation(positionShader, "physics_buffer_size"), 1, buffer_shape);
+    glUseProgram(velocityShader);
+    glUniform2fv(glGetUniformLocation(velocityShader, "physics_buffer_size"), 1, buffer_shape);
+    // glUseProgram(trailFirstShader);
+    // glUniform2fv(glGetUniformLocation(trailFirstShader, "physics_buffer_size"), 1, buffer_shape);
+    glUseProgram(trailSecondShader);
+    glUniform2fv(glGetUniformLocation(trailSecondShader, "physics_buffer_size"), 1, buffer_shape);
 }
 
 void allocateMapBuffer(const int mapIndex, const int width, const int height) {
@@ -546,23 +583,18 @@ void allocateMapBuffer(const int mapIndex, const int width, const int height) {
         fprintf(stderr, "ERROR::FRAMEBUFFER:: Framebuffer is not complete!\n");
         exit(EXIT_FAILURE);
     }
-
-    GLint max_renderbuffer_size;
-    glGetIntegerv(GL_MAX_RENDERBUFFER_SIZE, &max_renderbuffer_size); 
-    if (P > max_renderbuffer_size) {
-        std::cerr << "number of particles (" << P << ") larger than renderbuffer size (" << max_renderbuffer_size << ")" << std::endl;
-        exit(EXIT_FAILURE);
-    }
 }
 
 void allocatePhysicsBuffer(const int index, const char* data) {
     glActiveTexture(GL_TEXTURE0 + index);
-    glBindTexture(GL_TEXTURE_1D, textures[index]);
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexImage1D(GL_TEXTURE_1D, 0, GL_RG32F, P, 0, GL_RG, GL_FLOAT, data);
+    glBindTexture(GL_TEXTURE_2D, textures[index]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, physicsBufferWidth, physicsBufferHeight, 0, GL_RG, GL_FLOAT, data);
+
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[index]);
-    glFramebufferTexture1D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_1D, textures[index], 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textures[index], 0);
     if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
         fprintf(stderr, "ERROR::FRAMEBUFFER:: Framebuffer is not complete!\n");
         exit(EXIT_FAILURE);

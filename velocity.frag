@@ -29,8 +29,8 @@ in float VertexID;
 uniform int epoch_counter;
 uniform float drag_coefficient;
 uniform float dither_coefficient;
-uniform sampler1D position_buffer;
-uniform sampler1D velocity_buffer;
+uniform sampler2D position_buffer;
+uniform sampler2D velocity_buffer;
 
 // Based on:
 // https://thebookofshaders.com/10/
@@ -116,20 +116,28 @@ vec2 mouseRepell(vec2 mouse_vector, float mouse_repell_radius, float mouse_repel
 #endif
 
 void main() {
-    int i = int(gl_FragCoord.x); // Index of the particle
-    vec2 position = vec2(texelFetch(position_buffer, i, 0)); // current position
-    vec2 velocity = vec2(texelFetch(velocity_buffer, i, 0)); // previous velocity
+    ivec2 buffer_position = ivec2(gl_FragCoord.xy);
+    vec2 position = vec2(texelFetch(position_buffer, buffer_position, 0)); // current position
+    vec2 velocity = vec2(texelFetch(velocity_buffer, buffer_position, 0)); // previous velocity
     float density = texture(density_map, textureNormalisedCoords(position)).x;
 
     vec2 new_velocity = velocity;
 
     // Integrate density over a disk in a radius
-    vec2 density_integral = textureVDI(density_map, position, 30, 10, 100);
-    new_velocity -= 0.01 * density_integral;
+    // vec2 density_integral = textureVDI(density_map, position, 30, 10, 100);
+    vec2 density_integral = textureVDI(density_map, position, 10, 0, 100);
+    // vec2 density_integral = textureVDI(density_map, position, 20, 2, 100);
+    // new_velocity -= 0.01 * density_integral;
+    new_velocity -= 0.04 * density_integral;
+    // new_velocity -= (1-density) * 0.02 * density_integral;
+    // new_velocity -= (1-(1-density)*(1-density)) * 0.02 * density_integral;
+
 
     // Trial integral
-    vec2 trail_integral = textureVWI(trail_map, position, velocity, PI*0.5, 50, 20, 100);
-    new_velocity += 0.06 * trail_integral;
+    // vec2 trail_integral = textureVWI(trail_map, position, velocity, PI*0.5, 50, 20, 100);
+    vec2 trail_integral = textureVWI(trail_map, position, velocity, PI*0.6, 20, 10, 100);
+    // vec2 trail_integral = textureVWI(trail_map, position, velocity, PI*0.5, 30, 10, 100);
+    new_velocity += 0.07 * trail_integral;
     // new_velocity += clamp(1-density,0.2,1.0) * 0.05 * trail_integral;
     // new_velocity += clamp(density,0.5,1.0) * 0.05 * trail_integral;
 
