@@ -16,9 +16,10 @@ GLFWwindow* window;
 int width = 800; int height = 600;
 // int width = 600; int height = 800;
 const char* title = "Pixel Goo";
-const bool fullscreen = false;
-// const bool fullscreen = true;
-int whichMonitor = 1;
+// const bool fullscreen = false;
+const bool fullscreen = true;
+int whichMonitor = 0;
+// int whichMonitor = 1;
 
 // Textures and framebuffers
 GLuint textures[7];
@@ -50,7 +51,7 @@ const float densityAlpha = 0.005f;
 const float kernelRadius = 30.0f;
 
 // This can be quite a lot because the density map is lerped and particles dither
-const int densityMapDownsampling = 20;
+const int densityMapDownsampling = 10;
 int density_width = width/densityMapDownsampling + 1;
 int density_height = height/densityMapDownsampling + 1;
 
@@ -68,7 +69,7 @@ extern const GLchar* velocityFragmentShaderSource;
 #include "velocity.vert"
 #include "velocity.frag"
 
-const float dragCoefficient = 0.1;
+const float dragCoefficient = 0.15;
 const float ditherCoefficient = 0.08;
 
 // Trail (double) Map
@@ -84,9 +85,10 @@ extern const GLchar* trailSecondFragmentShaderSource;
 #include "trail_second.frag"
 // Alpha blending of each of the fragments
 const float trailIntensity = 0.06f;
+// const float trailAlpha = 0.88f;
 const float trailAlpha = 0.90f;
-const float trailRadius = 30.0f;
-const int trailMapDownsampling = 10;
+const float trailRadius = 17.0f;
+const int trailMapDownsampling = 5;
 const float trailVelocityFloor = 0.8;
 int trail_width = width/trailMapDownsampling + 1;
 int trail_height = height/trailMapDownsampling + 1;
@@ -118,20 +120,6 @@ void saveFrame(const int epoch_counter, unsigned int width, unsigned int height,
 //  ##      ##  ##   ##  ##  ##     ##  
 //                                        
 //========================================
-
-void DEBUG_printPositionTexture(const char* message, const int N = 3, const int M = 3) {
-    float pixels[2*P];
-    std::cout << message << ":" << std::endl;
-    glGetTexImage(GL_TEXTURE_1D, 0, GL_RG, GL_FLOAT, &pixels);
-    for (int i = 0; i < 2*N; i += 2) {
-        std::cout << " " << i/2 << ": " << pixels[i] << " " << pixels[i+1] << std::endl;
-    }
-    std::cout << "..." << std::endl;
-    for (int i = 2*P-(2*M); i < 2*P; i += 2) {
-        std::cout << " " << 2*P-(2*P-i)/2 << ": " << pixels[i] << " " << pixels[i+1] << std::endl;
-    }
-    std::cout << " " << std::endl;
-}
 
 int main() {
     window_setup();
@@ -182,6 +170,7 @@ int main() {
 
     // Texture 1 - Position buffer 1    
     float margin = glm::min(width,height)*0.05;
+    // float box_edge = glm::min(width,height)*0.2;
     float noise_seed = 10*glfwGetTime() + glm::linearRand<float>(0, 1);
     std::array<glm::vec2, P> positions;
     for (glm::vec2& position : positions) {
@@ -191,10 +180,13 @@ int main() {
         do {
             position = glm::vec2( glm::linearRand<float>(0, 1), glm::linearRand<float>(0, 1) );
             noise_value = glm::perlin( glm::vec3( position.x*4, position.y*4, noise_seed)) + 0.5;
-            noise_value = glm::clamp( noise_value, 0.2f, 1.0f);
+            noise_value = glm::clamp( noise_value, 0.1f, 1.0f);
         } while (glm::linearRand<float>(0, 1) < noise_value);
         position *= ( glm::vec2( width, height ) - 2*margin );
         position += margin;
+        // position = glm::diskRand(1.0) * (double)box_edge;
+        // position = glm::vec2( glm::linearRand<float>(-1, 1), glm::linearRand<float>(-1, 1) )*box_edge;
+        // position += glm::vec2(width/2,height/2);
     }
     allocatePhysicsBuffer(positionBufferIndex1, (const char*) positions.data());
 
@@ -355,6 +347,9 @@ int main() {
     // Clean up
     free(pixels);
     glBindVertexArray(0);
+    glDeleteBuffers(1, &buf);
+    glDeleteTextures(7, textures);
+    glDeleteFramebuffers(7, framebuffers);
     glfwDestroyWindow(window);
     glfwTerminate();
     return 0;
@@ -543,8 +538,8 @@ void updateShaderWindowShape(int new_width, int new_height) {
     glUniform2fv(glGetUniformLocation(positionShader, "window_size"), 1, window_shape);
     glUseProgram(velocityShader);
     glUniform2fv(glGetUniformLocation(velocityShader, "window_size"), 1, window_shape);
-    // glUseProgram(trailFirstShader);
-    // glUniform2fv(glGetUniformLocation(trailFirstShader, "window_size"), 1, window_shape);
+    glUseProgram(trailFirstShader);
+    glUniform2fv(glGetUniformLocation(trailFirstShader, "window_size"), 1, window_shape);
     glUseProgram(trailSecondShader);
     glUniform2fv(glGetUniformLocation(trailSecondShader, "window_size"), 1, window_shape);
 }
@@ -588,8 +583,10 @@ void allocateMapBuffer(const int mapIndex, const int width, const int height) {
 void allocatePhysicsBuffer(const int index, const char* data) {
     glActiveTexture(GL_TEXTURE0 + index);
     glBindTexture(GL_TEXTURE_2D, textures[index]);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, physicsBufferWidth, physicsBufferHeight, 0, GL_RG, GL_FLOAT, data);
 

@@ -68,6 +68,7 @@ vec2 textureVDI(sampler2D textureSampler, vec2 position, float radius, float nea
         vec2 sample_xy = r * vec2( cos(theta), sin(theta) );
 
         float sample = texture(textureSampler, textureNormalisedCoords(position + sample_xy)).x;
+        if (isnan(sample) || isinf(sample)) { sample = 0; }
         integral += sample * sample_xy;
     }
     return integral/N;
@@ -89,8 +90,8 @@ vec2 textureVWI(sampler2D textureSampler, vec2 position, vec2 velocity, float we
         theta = modFloat(theta,wedge_angle) - wedge_angle/2;
 
         vec2 sample_xy = r * vec2( cos(theta + wedge_direction), sin(theta + wedge_direction) );
-
         float sample = texture(textureSampler, textureNormalisedCoords(position + sample_xy)).x;
+        if (isnan(sample) || isinf(sample)) { sample = 0; }
         integral += sample * sample_xy;
     }
     return integral/N;
@@ -125,7 +126,7 @@ void main() {
 
     // Integrate density over a disk in a radius
     // vec2 density_integral = textureVDI(density_map, position, 30, 10, 100);
-    vec2 density_integral = textureVDI(density_map, position, 10, 0, 100);
+    vec2 density_integral = textureVDI(density_map, position, 20, 2, 100);
     // vec2 density_integral = textureVDI(density_map, position, 20, 2, 100);
     // new_velocity -= 0.01 * density_integral;
     new_velocity -= 0.04 * density_integral;
@@ -135,7 +136,7 @@ void main() {
 
     // Trial integral
     // vec2 trail_integral = textureVWI(trail_map, position, velocity, PI*0.5, 50, 20, 100);
-    vec2 trail_integral = textureVWI(trail_map, position, velocity, PI*0.6, 20, 10, 100);
+    vec2 trail_integral = textureVWI(trail_map, position, velocity, PI*0.6, 30, 10, 100);
     // vec2 trail_integral = textureVWI(trail_map, position, velocity, PI*0.5, 30, 10, 100);
     new_velocity += 0.07 * trail_integral;
     // new_velocity += clamp(1-density,0.2,1.0) * 0.05 * trail_integral;
@@ -165,7 +166,7 @@ void main() {
     // new_velocity += (1-density) * dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
     // new_velocity += clamp(1-density,0.2,1.0) * dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
     // new_velocity += density * dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
-    new_velocity += density * density * 2 * dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
+    new_velocity += density * density * density * 2 * 2 * dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
 
     // Drift
     // new_velocity += 0.1 * vec2(1.0, 1.0);
