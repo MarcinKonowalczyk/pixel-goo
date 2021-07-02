@@ -87,7 +87,7 @@ void main() {
     // colormap_sampler = colormap_sampler*colormap_sampler*colormap_sampler;
     // colormap_sampler = clamp(colormap_sampler,0.05,0.9);
     // colormap_sampler = 0.85*colormap_sampler+0.05;
-    color = vec4(magma(colormap_sampler), 1-(1-alpha)*(1-alpha));
+    color = vec4(magma(colormap_sampler), clamp(1-(1-alpha)*(1-alpha),0.1,1.0));
     // color = vec4(inferno(colormap_sampler) * vec3(alpha,alpha,alpha) , 1.0);
     // 1-(1-alpha)*(1-alpha)*(1-alpha)
 

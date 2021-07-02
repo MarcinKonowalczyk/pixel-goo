@@ -3,6 +3,7 @@
 #include <array>
 #include <vector>
 #include <utility>
+#include <fstream>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -14,10 +15,10 @@
 // Window
 GLFWwindow* window;
 int width = 800; int height = 600;
-// int width = 600; int height = 800;
+// int width = 400; int height = 400;
 const char* title = "Pixel Goo";
-// const bool fullscreen = false;
-const bool fullscreen = true;
+const bool fullscreen = false;
+// const bool fullscreen = true;
 int whichMonitor = 0;
 // int whichMonitor = 1;
 
@@ -52,6 +53,7 @@ const float kernelRadius = 30.0f;
 
 // This can be quite a lot because the density map is lerped and particles dither
 const int densityMapDownsampling = 10;
+// const int densityMapDownsampling = 1;
 int density_width = width/densityMapDownsampling + 1;
 int density_height = height/densityMapDownsampling + 1;
 
@@ -88,17 +90,22 @@ const float trailIntensity = 0.06f;
 // const float trailAlpha = 0.88f;
 const float trailAlpha = 0.90f;
 const float trailRadius = 17.0f;
-const int trailMapDownsampling = 5;
+// const int trailMapDownsampling = 5;
+const int trailMapDownsampling = 1;
 const float trailVelocityFloor = 0.8;
 int trail_width = width/trailMapDownsampling + 1;
 int trail_height = height/trailMapDownsampling + 1;
 
 // Particles
+// const float density = 200000/(1.0f*1920*1080);
+// const int P = width*height*density;
 // const int P = 11;
 // const int P = 5000;
 // const int P = 16384; // <- render buffer max
-const int P = 100000; // emmmmm...
-// const int P = 200000; // emmmmm...
+// const int P = 30000;
+const int P = 100000;
+// const int P = 200000;
+// const int P = 300000; // emmmmm...
 
 int physicsBufferWidth; // = P
 int physicsBufferHeight; // P/max_line_width
@@ -169,7 +176,7 @@ int main() {
     allocateMapBuffer(densityMapIndex, density_width, density_height);
 
     // Texture 1 - Position buffer 1    
-    float margin = glm::min(width,height)*0.05;
+    float margin = glm::min(width,height)*0.08;
     // float box_edge = glm::min(width,height)*0.2;
     float noise_seed = 10*glfwGetTime() + glm::linearRand<float>(0, 1);
     std::array<glm::vec2, P> positions;
@@ -179,7 +186,9 @@ int main() {
         float noise_value;
         do {
             position = glm::vec2( glm::linearRand<float>(0, 1), glm::linearRand<float>(0, 1) );
-            noise_value = glm::perlin( glm::vec3( position.x*4, position.y*4, noise_seed)) + 0.5;
+            // noise_value = glm::perlin( glm::vec3( position.x*4, position.y*4, noise_seed)) + 0.5;
+            noise_value = 2*glm::perlin( glm::vec3( position.x*50, position.y*50, noise_seed));
+            noise_value *= 10*glm::perlin( glm::vec3( position.x*4, position.y*4, noise_seed));
             noise_value = glm::clamp( noise_value, 0.1f, 1.0f);
         } while (glm::linearRand<float>(0, 1) < noise_value);
         position *= ( glm::vec2( width, height ) - 2*margin );
@@ -333,9 +342,7 @@ int main() {
             : exp_average_flip_time = alpha_flip_time*delta_flip_time + (1-alpha_flip_time)*exp_average_flip_time;
         std::cout << "epoch: " << epoch_counter << " buffer flip time: " << exp_average_flip_time << "ms" << std::endl;
 
-        // float poll_events_start = glfwGetTime();
         glfwPollEvents();
-        // std::cout << "poll events time: " << (glfwGetTime()-poll_events_start)*1000 << "ms" << std::endl;
 
         // Swap double buffers
         currentPositionBuffer = otherPositionBuffer;
@@ -400,6 +407,7 @@ void window_setup() {
         const GLFWvidmode* mode = glfwGetVideoMode(monitor);
         width = mode->width;
         height = mode->height;
+        std::cout << width << " " << height << std::endl;
         density_width = width/densityMapDownsampling + 1;
         density_height = height/densityMapDownsampling + 1;
         trail_width = width/trailMapDownsampling + 1;
@@ -612,17 +620,17 @@ void saveFrame(const int epoch_counter, unsigned int width, unsigned int height,
     size_t i, j, cur;
     const size_t format_nchannels = 3;
 
-    FILE *f = fopen(filename.c_str(), "w");
-    fprintf(f, "P3\n%d %d\n%d\n", width, height, 255);
-    // fprintf(f, "BM\n%d %d\n%d\n", width, height, 255);
-    *pixels = (GLubyte*) realloc(*pixels, format_nchannels * sizeof(GLubyte) * width * height);
+    std::ofstream fout;
+    fout.open(filename.c_str(), std::ios::binary | std::ios::out);
+    char header[1024];
+    size_t header_size = snprintf(header, sizeof(header), "P6\n%d %d\n%d\n", width, height, 255);
+    fout.write(header, header_size);
+    
+    size_t pixels_s = format_nchannels * sizeof(GLubyte) * width * height;
+    *pixels = (GLubyte*) realloc(*pixels, pixels_s);
     glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, *pixels);
-    for (i = 0; i < height; i++) {
-        for (j = 0; j < width; j++) {
-            cur = format_nchannels * ((height - i - 1) * width + j);
-            fprintf(f, "%3d %3d %3d ", (*pixels)[cur], (*pixels)[cur + 1], (*pixels)[cur + 2]);
-        }
-        fprintf(f, "\n");
-    }
-    fclose(f);
+    fout.write((char*) *pixels, pixels_s);
+
+    fout.close();
+    // fclose(f);
 }
