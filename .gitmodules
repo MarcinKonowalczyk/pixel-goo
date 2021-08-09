@@ -1,12 +1,12 @@
 [submodule "glfw"]
-	path = glfw
+	path = lib/glfw
 	url = https://github.com/glfw/glfw.git
 [submodule "glad"]
-	path = glad
+	path = lib/glad
 	url = https://github.com/Dav1dde/glad.git
-[submodule "glm"]
-	path = glm
-	url = https://github.com/g-truc/glm.git
-[submodule "build/glm"]
-	path = glm
+[submodule "stb"]
+	path = lib/stb
+	url = https://github.com/nothings/stb.git
+[submodule "lib/glm"]
+	path = lib/glm
 	url = https://github.com/g-truc/glm.git
