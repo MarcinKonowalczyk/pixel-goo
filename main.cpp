@@ -12,6 +12,8 @@
 #include <glm/gtc/random.hpp>
 #include <glm/gtc/noise.hpp>
 
+#include <stb_truetype.h>
+
 // Window
 GLFWwindow* window;
 int width = 800; int height = 600;
@@ -19,8 +21,8 @@ int width = 800; int height = 600;
 const char* title = "Pixel Goo";
 const bool fullscreen = false;
 // const bool fullscreen = true;
-int whichMonitor = 0;
-// int whichMonitor = 1;
+// int whichMonitor = 0;
+int whichMonitor = 1;
 
 // Textures and framebuffers
 GLuint textures[7];
@@ -71,7 +73,7 @@ extern const GLchar* velocityFragmentShaderSource;
 #include "velocity.vert"
 #include "velocity.frag"
 
-const float dragCoefficient = 0.15;
+const float dragCoefficient = 0.13;
 const float ditherCoefficient = 0.08;
 
 // Trail (double) Map
@@ -87,11 +89,11 @@ extern const GLchar* trailSecondFragmentShaderSource;
 #include "trail_second.frag"
 // Alpha blending of each of the fragments
 const float trailIntensity = 0.06f;
-// const float trailAlpha = 0.88f;
-const float trailAlpha = 0.90f;
-const float trailRadius = 17.0f;
-// const int trailMapDownsampling = 5;
-const int trailMapDownsampling = 1;
+const float trailAlpha = 0.88f;
+// const float trailAlpha = 0.90f;
+const float trailRadius = 15.0f;
+const int trailMapDownsampling = 5;
+// const int trailMapDownsampling = 1;
 const float trailVelocityFloor = 0.8;
 int trail_width = width/trailMapDownsampling + 1;
 int trail_height = height/trailMapDownsampling + 1;
@@ -103,7 +105,7 @@ int trail_height = height/trailMapDownsampling + 1;
 // const int P = 5000;
 // const int P = 16384; // <- render buffer max
 // const int P = 30000;
-const int P = 100000;
+const int P = 150000;
 // const int P = 200000;
 // const int P = 300000; // emmmmm...
 
@@ -127,6 +129,7 @@ void saveFrame(const int epoch_counter, unsigned int width, unsigned int height,
 //  ##      ##  ##   ##  ##  ##     ##  
 //                                        
 //========================================
+
 
 int main() {
     window_setup();

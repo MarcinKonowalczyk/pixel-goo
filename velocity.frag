@@ -164,9 +164,10 @@ void main() {
     // Dither
     // new_velocity += dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
     // new_velocity += (1-density) * dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
-    // new_velocity += clamp(1-density,0.2,1.0) * dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
+    
+    new_velocity += clamp(1-density,0.1,1.0) * clamp(1-density,0.1,1.0) * 2 * dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
     // new_velocity += density * dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
-    new_velocity += density * density * density * 2 * 2 * dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
+    // new_velocity += density * density * density * 2 * 2 * dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
 
     // Drift
     // new_velocity += 0.1 * vec2(1.0, 1.0);
