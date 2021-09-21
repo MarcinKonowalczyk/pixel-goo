@@ -1,3 +1,6 @@
+<img align=right width=300 src="./img/demo.gif" style="margin:10px">
+
+
 # pixel-goo
 
 Goo-like particle system simulation running on the GPU.
