@@ -39,17 +39,12 @@ const int trailMapIndex2 = 6;
 
 // Screen shader
 Shader screenRenderingShader("screenRenderingShader");
-extern const GLchar* screenVertexShaderSource;
-extern const GLchar* screenFragmentShaderSource;
-#include "screen.vert"
-#include "screen.frag"
+#include "screen.h"
 
 // Density Map
 Shader densityMapShader("densityMapShader");
-extern const GLchar* densityVertexShaderSource;
-extern const GLchar* densityFragmentShaderSource;
-#include "density.vert"
-#include "density.frag"
+#include "density.h"
+
 // Alpha blending of each of the fragments
 const float densityAlpha = 0.005f;
 // const float densityAlpha = 0.9f;
@@ -63,32 +58,22 @@ int density_height = height/densityMapDownsampling + 1;
 
 // Position shader
 Shader positionShader("positionShader");
-extern const GLchar* positionVertexShaderSource;
-extern const GLchar* positionFragmentShaderSource;
-#include "position.vert"
-#include "position.frag"
+#include "position.h"
 
 // Velocity shader
 Shader velocityShader("velocityShader");
-extern const GLchar* velocityVertexShaderSource;
-extern const GLchar* velocityFragmentShaderSource;
-#include "velocity.vert"
-#include "velocity.frag"
+#include "velocity.h"
 
 const float dragCoefficient = 0.13;
 const float ditherCoefficient = 0.08;
 
 // Trail (double) Map
 Shader trailFirstShader("trailFirstShader");
-extern const GLchar* trailFirstVertexShaderSource;
-extern const GLchar* trailFirstFragmentShaderSource;
-#include "trail_first.vert"
-#include "trail_first.frag"
+#include "trail_first.h"
+
 Shader trailSecondShader("trailSecondShader");
-extern const GLchar* trailSecondVertexShaderSource;
-extern const GLchar* trailSecondFragmentShaderSource;
-#include "trail_second.vert"
-#include "trail_second.frag"
+#include "trail_second.h"
+
 // Alpha blending of each of the fragments
 const float trailIntensity = 0.06f;
 const float trailAlpha = 0.85f;
@@ -102,7 +87,7 @@ int trail_height = height/trailMapDownsampling + 1;
 
 // Particles
 // const float density = 200000/(1.0f*1920*1080);
-// const int P = width*height*density;
+// const int P = width*height*density;./b
 // const int P = 11;
 // const int P = 5000;
 // const int P = 16384; // <- render buffer max
@@ -478,33 +463,33 @@ void window_setup() {
 
 void shader_setup() {
     screenRenderingShader.create();
-    screenRenderingShader.compile(GL_VERTEX_SHADER, screenVertexShaderSource);
-    screenRenderingShader.compile(GL_FRAGMENT_SHADER, screenFragmentShaderSource);
+    screenRenderingShader.compile(GL_VERTEX_SHADER, screen_VertexShaderSource);
+    screenRenderingShader.compile(GL_FRAGMENT_SHADER, screen_FragmentShaderSource);
     screenRenderingShader.link();
 
     densityMapShader.create();
-    densityMapShader.compile(GL_VERTEX_SHADER, densityVertexShaderSource);
-    densityMapShader.compile(GL_FRAGMENT_SHADER, densityFragmentShaderSource);
+    densityMapShader.compile(GL_VERTEX_SHADER, density_VertexShaderSource);
+    densityMapShader.compile(GL_FRAGMENT_SHADER, density_FragmentShaderSource);
     densityMapShader.link();
 
     positionShader.create();
-    positionShader.compile(GL_VERTEX_SHADER, positionVertexShaderSource);
-    positionShader.compile(GL_FRAGMENT_SHADER, positionFragmentShaderSource);
+    positionShader.compile(GL_VERTEX_SHADER, position_VertexShaderSource);
+    positionShader.compile(GL_FRAGMENT_SHADER, position_FragmentShaderSource);
     positionShader.link();
 
     velocityShader.create();
-    velocityShader.compile(GL_VERTEX_SHADER, velocityVertexShaderSource);
-    velocityShader.compile(GL_FRAGMENT_SHADER, velocityFragmentShaderSource);
+    velocityShader.compile(GL_VERTEX_SHADER, velocity_VertexShaderSource);
+    velocityShader.compile(GL_FRAGMENT_SHADER, velocity_FragmentShaderSource);
     velocityShader.link();
 
     trailFirstShader.create();
-    trailFirstShader.compile(GL_VERTEX_SHADER, trailFirstVertexShaderSource);
-    trailFirstShader.compile(GL_FRAGMENT_SHADER, trailFirstFragmentShaderSource);
+    trailFirstShader.compile(GL_VERTEX_SHADER, trail_first_VertexShaderSource);
+    trailFirstShader.compile(GL_FRAGMENT_SHADER, trail_first_FragmentShaderSource);
     trailFirstShader.link();
 
     trailSecondShader.create();
-    trailSecondShader.compile(GL_VERTEX_SHADER, trailSecondVertexShaderSource);
-    trailSecondShader.compile(GL_FRAGMENT_SHADER, trailSecondFragmentShaderSource);
+    trailSecondShader.compile(GL_VERTEX_SHADER, trail_second_VertexShaderSource);
+    trailSecondShader.compile(GL_FRAGMENT_SHADER, trail_second_FragmentShaderSource);
     trailSecondShader.link();
 }
 

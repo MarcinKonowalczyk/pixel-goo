@@ -1,7 +1,3 @@
-// Vertex shader source
-// This file will be #included in the source at compile time
-// The actuall source must therefore be in an R-string
-const GLchar* screenVertexShaderSource = R"(
 #version 330 core
 
 uniform vec2 window_size;
@@ -28,4 +24,3 @@ void main() {
     // gl_PointSize = 2.0f;
     gl_PointSize = 1.0f;
 }
-)";

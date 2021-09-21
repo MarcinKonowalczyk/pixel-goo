@@ -1,7 +1,3 @@
-// Fragment shader source
-// This file will be #included in the source at compile time
-// The actuall srource must therefore be in an R-string
-const GLchar* positionFragmentShaderSource = R"(
 #version 330 core
 
 // Access fragmet coordinates in integer steps
@@ -29,5 +25,3 @@ void main() {
 
     out_position = vec4(new_position, 0.0, 1.0);
 }
-
-)";

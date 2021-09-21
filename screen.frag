@@ -1,7 +1,3 @@
-// Fragment shader source
-// This file will be #included in the source at compile time
-// The actuall source must therefore be in an R-string
-const GLchar* screenFragmentShaderSource = R"(
 #version 330 core
 out vec4 color;
 
@@ -92,4 +88,3 @@ void main() {
     // color = mix(color1 * alpha, color2, density);
     // color = vec4(mix(color1, color2, density).xyz, alpha);
 }
-)";

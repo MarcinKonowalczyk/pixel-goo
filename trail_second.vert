@@ -1,7 +1,3 @@
-// Vertex shader source
-// This file will be #included in the source at compile time
-// The actuall source must therefore be in an R-string
-const GLchar* trailSecondVertexShaderSource = R"(
 #version 330 core
 
 // uniform sampler2D trail_map;
@@ -30,5 +26,3 @@ void main() {
     gl_PointSize = kernel_radius/trail_map_downsampling;
     // gl_PointSize = 10.0f;
 }
-
-)";

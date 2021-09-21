@@ -1,7 +1,3 @@
-// Vertex shader source
-// This file will be #included in the source at compile time
-// The actuall source must therefore be in an R-string
-const GLchar* positionVertexShaderSource = R"(
 #version 330 core
 
 out float VertexID;
@@ -14,5 +10,3 @@ void main() {
     gl_Position = vec4(corners[gl_VertexID], 1.0, 1.0);
     VertexID = float(gl_VertexID);
 }
-
-)";

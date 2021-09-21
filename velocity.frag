@@ -1,7 +1,3 @@
-// Fragment shader source
-// This file will be #included in the source at compile time
-// The actuall srource must therefore be in an R-string
-const GLchar* velocityFragmentShaderSource = R"(
 #version 330 core
 
 #define PI 3.141592653589793
@@ -249,4 +245,3 @@ void main() {
 
     out_velocity = vec4(new_velocity, 0.0, 1.0);
 }
-)";

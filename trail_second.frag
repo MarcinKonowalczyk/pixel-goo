@@ -1,7 +1,3 @@
-// Fragment shader source
-// This file will be #included in the source at compile time
-// The actuall source must therefore be in an R-string
-const GLchar* trailSecondFragmentShaderSource = R"(
 #version 330 core
 uniform float trail_intensity;
 uniform float velocity_floor;
@@ -32,5 +28,3 @@ void main() {
 
     color = vec4(1.0f, 0.0f, 0.0f, trail_intensity);    
 }
-
-)";

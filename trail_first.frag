@@ -1,7 +1,3 @@
-// Fragment shader source
-// This file will be #included in the source at compile time
-// The actuall source must therefore be in an R-string
-const GLchar* trailFirstFragmentShaderSource = R"(
 #version 330 core
 out vec4 color;
 
@@ -13,4 +9,3 @@ void main() {
     // color = vec4( mix(0.0,1.0,(gl_PointCoord.x+1)/2), mix(1.0,0.0,(gl_PointCoord.y+1)/2), 0.0, 1.0);
     color = vec4(previous_trail, 0.0f, alpha);
 }
-)";
