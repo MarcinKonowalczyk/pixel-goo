@@ -6,6 +6,7 @@ uniform sampler2D position_buffer;
 uniform sampler2D velocity_buffer;
 
 out float velocity;
+out float VertexID;
 
 vec2 screenNormalisedCoords(vec2 coordinate) {
     coordinate = mod(coordinate, window_size);
@@ -23,4 +24,5 @@ void main() {
     gl_Position = vec4(screenNormalisedCoords(position), 0.0f, 1.0f);
     // gl_PointSize = 2.0f;
     gl_PointSize = 1.0f;
+    VertexID = float(gl_VertexID);
 }

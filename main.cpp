@@ -37,13 +37,20 @@ const int velocityBufferIndex2 = 4;
 const int trailMapIndex1 = 5;
 const int trailMapIndex2 = 6;
 
-// Screen shader
 Shader screenRenderingShader("screenRenderingShader");
-#include "screen.h"
-
-// Density Map
 Shader densityMapShader("densityMapShader");
+Shader positionShader("positionShader");
+Shader velocityShader("velocityShader");
+Shader trailFirstShader("trailFirstShader");
+Shader trailSecondShader("trailSecondShader");
+
+// Include shader source files
+#include "trail_first.h"
+#include "trail_second.h"
+#include "screen.h"
 #include "density.h"
+#include "position.h"
+#include "velocity.h"
 
 // Alpha blending of each of the fragments
 const float densityAlpha = 0.005f;
@@ -52,27 +59,12 @@ const float kernelRadius = 30.0f;
 
 // This can be quite a lot because the density map is lerped and particles dither
 const int densityMapDownsampling = 10;
-// const int densityMapDownsampling = 1;
+// const int densityMapDownsampling = 20;
 int density_width = width/densityMapDownsampling + 1;
 int density_height = height/densityMapDownsampling + 1;
 
-// Position shader
-Shader positionShader("positionShader");
-#include "position.h"
-
-// Velocity shader
-Shader velocityShader("velocityShader");
-#include "velocity.h"
-
 const float dragCoefficient = 0.13;
 const float ditherCoefficient = 0.08;
-
-// Trail (double) Map
-Shader trailFirstShader("trailFirstShader");
-#include "trail_first.h"
-
-Shader trailSecondShader("trailSecondShader");
-#include "trail_second.h"
 
 // Alpha blending of each of the fragments
 const float trailIntensity = 0.06f;
@@ -80,7 +72,7 @@ const float trailAlpha = 0.85f;
 // const float trailAlpha = 0.90f;
 const float trailRadius = 15.0f;
 const int trailMapDownsampling = 10;
-// const int trailMapDownsampling = 1;
+// const int trailMapDownsampling = 20;
 const float trailVelocityFloor = 0.7;
 int trail_width = width/trailMapDownsampling + 1;
 int trail_height = height/trailMapDownsampling + 1;
@@ -95,8 +87,7 @@ int trail_height = height/trailMapDownsampling + 1;
 // const int P = 160000;
 // const int P = 200000;
 const int P = 300000;
-// const int P = 340000; // emmmmm...
-// const int P = 350000; // emmmmm...
+// const int P = 1000000; // emmmmm...
 
 int physicsBufferWidth; // = P
 int physicsBufferHeight; // P/max_line_width
@@ -126,9 +117,9 @@ int main() {
     // buffer_setup();
 
     // Setup vertex array
-    std::array<glm::vec2, P> vertices;
-    for (glm::vec2& vertex : vertices) {
-        vertex = glm::vec2(0,0);
+    int* vertices = (int*) malloc(2*P*sizeof(int));
+    for (int i = 0; i < 2*P; i++) {
+        vertices[i] = 0;
     }
 
     GLuint vao;
@@ -138,7 +129,9 @@ int main() {
     GLuint buf;
     glGenBuffers(1, &buf);
     glBindBuffer(GL_ARRAY_BUFFER, buf);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, 2*P*sizeof(int), vertices, GL_STATIC_DRAW);
+    free(vertices);
+
     glEnableVertexAttribArray(0); 
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
 
@@ -171,32 +164,41 @@ int main() {
     float margin = glm::min(width,height)*0.08;
     // float box_edge = glm::min(width,height)*0.2;
     float noise_seed = 10*glfwGetTime() + glm::linearRand<float>(0, 1);
-    std::array<glm::vec2, P> positions;
-    for (glm::vec2& position : positions) {
-        // position = glm::clamp( glm::vec2( glm::gaussRand<float>(0.5, 0.5), glm::gaussRand<float>(0.5, 0.5)), 0.0f, 1.0f );
-        // position = glm::vec2( glm::linearRand<float>(0, 1), glm::linearRand<float>(0, 1) );
-        float noise_value;
-        do {
-            position = glm::vec2( glm::linearRand<float>(0, 1), glm::linearRand<float>(0, 1) );
-            // noise_value = glm::perlin( glm::vec3( position.x*4, position.y*4, noise_seed)) + 0.5;
-            noise_value = 2*glm::perlin( glm::vec3( position.x*50, position.y*50, noise_seed));
-            noise_value *= 10*glm::perlin( glm::vec3( position.x*4, position.y*4, noise_seed));
-            noise_value = glm::clamp( noise_value, 0.1f, 1.0f);
-        } while (glm::linearRand<float>(0, 1) < noise_value);
+    // char* positions = (char*) malloc(2*P*sizeof(float));
+    int N = physicsBufferWidth*physicsBufferHeight*2;
+    float* positions = new float[N];
+    for (int i = 0; i < N; i += 2) {
+        glm::vec2 position;
+        // glm::vec2 position = glm::clamp( glm::vec2( glm::gaussRand<float>(0.5, 0.5), glm::gaussRand<float>(0.5, 0.5)), 0.0f, 1.0f );
+        position = glm::vec2( glm::linearRand<float>(0, 1), glm::linearRand<float>(0, 1) );
+        // float noise_value;
+        // do {
+        //     position = glm::vec2( glm::linearRand<float>(0, 1), glm::linearRand<float>(0, 1) );
+        //     // noise_value = glm::perlin( glm::vec3( position.x*4, position.y*4, noise_seed)) + 0.5;
+        //     noise_value = 2*glm::perlin( glm::vec3( position.x*50, position.y*50, noise_seed));
+        //     noise_value *= 10*glm::perlin( glm::vec3( position.x*4, position.y*4, noise_seed));
+        //     noise_value = glm::clamp( noise_value, 0.1f, 1.0f);
+        // } while (glm::linearRand<float>(0, 1) < noise_value);
         position *= ( glm::vec2( width, height ) - 2*margin );
         position += margin;
+
         // position = glm::diskRand(1.0) * (double)box_edge;
         // position = glm::vec2( glm::linearRand<float>(-1, 1), glm::linearRand<float>(-1, 1) )*box_edge;
         // position += glm::vec2(width/2,height/2);
+        positions[i] = position.x;
+        positions[i+1] = position.y;
     }
-    allocatePhysicsBuffer(positionBufferIndex1, (const char*) positions.data());
+
+    allocatePhysicsBuffer(positionBufferIndex1, (const char*) positions);
+    delete[] positions;
 
     // Texture 2,3,4 - position buffer 2, velocity buffer 1 and 2
-    std::array<glm::vec2, P> emptyPhysicsBuffer;
-    for (glm::vec2& position : emptyPhysicsBuffer) { position = glm::vec2(0,0); }
-    allocatePhysicsBuffer(positionBufferIndex2, (const char*) emptyPhysicsBuffer.data());
-    allocatePhysicsBuffer(velocityBufferIndex1, (const char*) emptyPhysicsBuffer.data());
-    allocatePhysicsBuffer(velocityBufferIndex2, (const char*) emptyPhysicsBuffer.data());
+    float* emptyPhysicsBuffer = new float[N];
+    for (int i = 0; i < N; i++ ) { emptyPhysicsBuffer[i] = 0; }
+    allocatePhysicsBuffer(positionBufferIndex2, (const char*) emptyPhysicsBuffer);
+    allocatePhysicsBuffer(velocityBufferIndex1, (const char*) emptyPhysicsBuffer);
+    allocatePhysicsBuffer(velocityBufferIndex2, (const char*) emptyPhysicsBuffer);
+    delete[] emptyPhysicsBuffer;
 
     // Texture 5,6 - Trail double map
     allocateMapBuffer(trailMapIndex1, trail_width, trail_height);
