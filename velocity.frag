@@ -15,10 +15,7 @@ layout(pixel_center_integer) in vec4 gl_FragCoord;
 out vec4 out_velocity;
 
 uniform sampler2D density_map;
-uniform int density_map_downsampling;
-
 uniform sampler2D trail_map;
-uniform int trail_map_downsampling;
 
 #ifdef MOUSE_REPELL
 uniform vec2 mouse_position;
@@ -154,34 +151,14 @@ void main() {
 
     vec2 new_velocity = velocity;
 
-    // Integrate density over a disk in a radius
-    // vec2 density_integral = textureVDI(density_map, position, 30, 10, 100);
-    // vec2 density_integral = textureVDI(density_map, position, 20, 2, 100);
-    vec2 density_integral = textureVDI(density_map, position, 20, 2, 20);
-    // vec2 density_integral = textureVDI(density_map, position, 20, 2, 100);
-    // new_velocity -= 0.01 * density_integral;
-    new_velocity -= 0.04 * density_integral;
-    // new_velocity -= (1-density) * 0.02 * density_integral;
-    // new_velocity -= (1-(1-density)*(1-density)) * 0.02 * density_integral;
-
-
-    // Trial integral
-    // vec2 trail_integral = textureVWI(trail_map, position, velocity, PI*0.5, 50, 20, 100);
-    // vec2 trail_integral = textureVWI(trail_map, position, velocity, PI*0.6, 30, 10, 100);
-    vec2 trail_integral = textureVWI(trail_map, position, velocity, PI*0.6, 30, 10, 20);
-    // vec2 trail_integral = textureVWI(trail_map, position, velocity, PI*0.5, 30, 10, 100);
-    // new_velocity += 0.07 * trail_integral;
-    // new_velocity += clamp(1-density,0.2,1.0) * 0.05 * trail_integral;
-    new_velocity += clamp((1-(density * density * density)), 0.8, 1) * 0.07 * trail_integral;
-
-
     // Mouse repell
 #ifdef MOUSE_REPELL
-    const float mouse_repell_radius = 200;
-    const float mouse_repell_coefficient = 0.5;
+    const float mouse_repell_radius = 150;
+    const float mouse_repell_coefficient = 0.2;
     vec2 mouse_vector = mouse_position - position;
     new_velocity -= mouseRepell(mouse_vector, mouse_repell_radius, mouse_repell_coefficient);
-
+    bool inmouseradius = length(mouse_vector) < mouse_repell_radius;
+    
     // Screen wrap of mouse repell (basically add additional 8 mouse positions)
     // new_velocity -= mouseRepell(mouse_vector + vec2(+window_size.x,0), mouse_repell_radius, mouse_repell_coefficient);
     // new_velocity -= mouseRepell(mouse_vector + vec2(-window_size.x,0), mouse_repell_radius, mouse_repell_coefficient);
@@ -193,11 +170,42 @@ void main() {
     // new_velocity -= mouseRepell(mouse_vector + vec2(-window_size.x,-window_size.y), mouse_repell_radius, mouse_repell_coefficient);
 #endif
 
+    // Integrate density over a disk in a radius
+#ifdef MOUSE_REPELL
+    // if (!inmouseradius) {
+#endif /* MOUSE_REPELL */
+        // vec2 density_integral = textureVDI(density_map, position, 30, 10, 100);
+        // vec2 density_integral = textureVDI(density_map, position, 20, 2, 100);
+        vec2 density_integral = textureVDI(density_map, position, 20, 2, 20);
+        // vec2 density_integral = textureVDI(density_map, position, 20, 2, 100);
+        // new_velocity -= 0.01 * density_integral;
+        new_velocity -= 0.04 * density_integral;
+        // new_velocity -= (1-density) * 0.02 * density_integral;
+        // new_velocity -= (1-(1-density)*(1-density)) * 0.02 * density_integral;
+#ifdef MOUSE_REPELL
+    // }
+#endif /* MOUSE_REPELL */
+
+    // Trial integral
+#ifdef MOUSE_REPELL
+    if (!inmouseradius) {
+#endif /* MOUSE_REPELL */
+        // vec2 trail_integral = textureVWI(trail_map, position, velocity, PI*0.5, 50, 20, 100);
+        // vec2 trail_integral = textureVWI(trail_map, position, velocity, PI*0.6, 30, 10, 100);
+        vec2 trail_integral = textureVWI(trail_map, position, velocity, PI*0.6, 30, 10, 20);
+        // vec2 trail_integral = textureVWI(trail_map, position, velocity, PI*0.5, 30, 10, 100);
+        // new_velocity += 0.07 * trail_integral;
+        // new_velocity += clamp(1-density,0.2,1.0) * 0.05 * trail_integral;
+        new_velocity += clamp((1-(density * density * density)), 0.8, 1) * 0.07 * trail_integral;
+#ifdef MOUSE_REPELL
+    }
+#endif /* MOUSE_REPELL */
+
 #ifdef EDGE_REPELL
     const float edge_repell_radius = 100;
     const float edge_repell_coefficient = 0.1;
     new_velocity -= edgeRepell(position, window_size, edge_repell_radius, edge_repell_coefficient);
-#endif
+#endif /* EDGE_REPELL */
 
     // Dither
     // new_velocity += dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);

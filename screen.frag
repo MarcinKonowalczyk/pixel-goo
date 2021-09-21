@@ -8,7 +8,6 @@ out vec4 color;
 layout(pixel_center_integer) in vec4 gl_FragCoord;
 
 uniform sampler2D density_map;
-uniform int density_map_downsampling;
 uniform vec2 window_size;
 
 in float velocity;
@@ -43,7 +42,6 @@ vec3 plasma(float t) {
 }
 
 vec3 magma(float t) {
-
     const vec3 c0 = vec3(-0.002136485053939582, -0.000749655052795221, -0.005386127855323933);
     const vec3 c1 = vec3(0.2516605407371642, 0.6775232436837668, 2.494026599312351);
     const vec3 c2 = vec3(8.353717279216625, -3.577719514958484, 0.3144679030132573);
