@@ -1,3 +1,5 @@
+// #include "shader.h"
+
 #include <iostream>
 
 #include <array>
@@ -12,15 +14,15 @@
 #include <glm/gtc/random.hpp>
 #include <glm/gtc/noise.hpp>
 
-#include <stb_truetype.h>
+// #include <stb_truetype.h>
 
 // Window
 GLFWwindow* window;
 int width = 800; int height = 600;
 // int width = 400; int height = 400;
 const char* title = "Pixel Goo";
-const bool fullscreen = false;
-// const bool fullscreen = true;
+// const bool fullscreen = false;
+const bool fullscreen = true;
 // int whichMonitor = 0;
 int whichMonitor = 1;
 
@@ -89,12 +91,12 @@ extern const GLchar* trailSecondFragmentShaderSource;
 #include "trail_second.frag"
 // Alpha blending of each of the fragments
 const float trailIntensity = 0.06f;
-const float trailAlpha = 0.88f;
+const float trailAlpha = 0.85f;
 // const float trailAlpha = 0.90f;
 const float trailRadius = 15.0f;
-const int trailMapDownsampling = 5;
+const int trailMapDownsampling = 10;
 // const int trailMapDownsampling = 1;
-const float trailVelocityFloor = 0.8;
+const float trailVelocityFloor = 0.7;
 int trail_width = width/trailMapDownsampling + 1;
 int trail_height = height/trailMapDownsampling + 1;
 
@@ -105,9 +107,11 @@ int trail_height = height/trailMapDownsampling + 1;
 // const int P = 5000;
 // const int P = 16384; // <- render buffer max
 // const int P = 30000;
-const int P = 150000;
+// const int P = 160000;
 // const int P = 200000;
-// const int P = 300000; // emmmmm...
+const int P = 300000;
+// const int P = 340000; // emmmmm...
+// const int P = 350000; // emmmmm...
 
 int physicsBufferWidth; // = P
 int physicsBufferHeight; // P/max_line_width

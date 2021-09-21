@@ -7,6 +7,7 @@ const GLchar* velocityFragmentShaderSource = R"(
 #define PI 3.141592653589793
 #define GOLD 1.618033988749895
 #define MOUSE_REPELL
+#define EDGE_REPELL
 
 // Access fragmet coordinates in integer steps
 // TODO: explain more
@@ -116,6 +117,35 @@ vec2 mouseRepell(vec2 mouse_vector, float mouse_repell_radius, float mouse_repel
 }
 #endif
 
+// Mouse interaction
+#ifdef EDGE_REPELL
+vec2 edgeRepell(vec2 position, vec2 window_size, float edge_repell_radius, float edge_repell_coefficient) {
+    vec2 repell = vec2(0,0);
+    float edge_vector_length;
+    // Left edge repell
+    edge_vector_length = position.x;
+    if (edge_vector_length < edge_repell_radius) {
+        repell += vec2(-1,0) * (1-(edge_vector_length/edge_repell_radius)) * (1-(edge_vector_length/edge_repell_radius));
+    }
+    // Right edge repell
+    edge_vector_length = window_size.x-position.x;
+    if (edge_vector_length < edge_repell_radius) {
+        repell += vec2(1,0) * (1-(edge_vector_length/edge_repell_radius)) * (1-(edge_vector_length/edge_repell_radius));
+    }
+    // Top edge repell
+    edge_vector_length = position.y;
+    if (edge_vector_length < edge_repell_radius) {
+        repell += vec2(0,-1) * (1-(edge_vector_length/edge_repell_radius)) * (1-(edge_vector_length/edge_repell_radius));
+    }
+    // Bottom edge repell
+    // edge_vector_length = window_size.y-position.y;
+    // if (edge_vector_length < edge_repell_radius) {
+    //     repell += vec2(0,1) * (1-(edge_vector_length/edge_repell_radius)) * (1-(edge_vector_length/edge_repell_radius));
+    // }
+    return edge_repell_coefficient * repell;
+}
+#endif
+
 void main() {
     ivec2 buffer_position = ivec2(gl_FragCoord.xy);
     vec2 position = vec2(texelFetch(position_buffer, buffer_position, 0)); // current position
@@ -126,7 +156,8 @@ void main() {
 
     // Integrate density over a disk in a radius
     // vec2 density_integral = textureVDI(density_map, position, 30, 10, 100);
-    vec2 density_integral = textureVDI(density_map, position, 20, 2, 100);
+    // vec2 density_integral = textureVDI(density_map, position, 20, 2, 100);
+    vec2 density_integral = textureVDI(density_map, position, 20, 2, 20);
     // vec2 density_integral = textureVDI(density_map, position, 20, 2, 100);
     // new_velocity -= 0.01 * density_integral;
     new_velocity -= 0.04 * density_integral;
@@ -136,11 +167,12 @@ void main() {
 
     // Trial integral
     // vec2 trail_integral = textureVWI(trail_map, position, velocity, PI*0.5, 50, 20, 100);
-    vec2 trail_integral = textureVWI(trail_map, position, velocity, PI*0.6, 30, 10, 100);
+    // vec2 trail_integral = textureVWI(trail_map, position, velocity, PI*0.6, 30, 10, 100);
+    vec2 trail_integral = textureVWI(trail_map, position, velocity, PI*0.6, 30, 10, 20);
     // vec2 trail_integral = textureVWI(trail_map, position, velocity, PI*0.5, 30, 10, 100);
-    new_velocity += 0.07 * trail_integral;
+    // new_velocity += 0.07 * trail_integral;
     // new_velocity += clamp(1-density,0.2,1.0) * 0.05 * trail_integral;
-    // new_velocity += clamp(density,0.5,1.0) * 0.05 * trail_integral;
+    new_velocity += clamp((1-(density * density * density)), 0.8, 1) * 0.07 * trail_integral;
 
 
     // Mouse repell
@@ -161,19 +193,28 @@ void main() {
     // new_velocity -= mouseRepell(mouse_vector + vec2(-window_size.x,-window_size.y), mouse_repell_radius, mouse_repell_coefficient);
 #endif
 
+#ifdef EDGE_REPELL
+    const float edge_repell_radius = 100;
+    const float edge_repell_coefficient = 0.1;
+    new_velocity -= edgeRepell(position, window_size, edge_repell_radius, edge_repell_coefficient);
+#endif
+
     // Dither
     // new_velocity += dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
     // new_velocity += (1-density) * dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
     
-    new_velocity += clamp(1-density,0.1,1.0) * clamp(1-density,0.1,1.0) * 2 * dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
-    // new_velocity += density * dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
+    // new_velocity += clamp(1-density,0.1,1.0) * clamp(1-density,0.1,1.0) * 2 * dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
+    new_velocity += density * dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
     // new_velocity += density * density * density * 2 * 2 * dither_coefficient * random(vec2(0,0) + VertexID + epoch_counter);
 
     // Drift
     // new_velocity += 0.1 * vec2(1.0, 1.0);
-    // new_velocity += (1-density) * vec2(1.0, 1.0);
+    new_velocity += 0.02 * (1-density) * vec2(0.0, -1.0);
     // vec2 rotating_gravity = vec2(sin(epoch_counter*2*PI/300), cos(epoch_counter*2*PI/300));
-    // new_velocity += (1- clamp(velocity,0.0,1.0)*density) * 0.01 * rotating_gravity;
+    // new_velocity += (1- clamp(velocity,0.0,1.0)*density) * 0.1 * rotating_gravity;
+    if (density > 0.95) {
+        new_velocity += 0.09 * abs(random(vec2(3,2) + VertexID + epoch_counter)) * vec2(0,-1);
+    }
 
     // Resolve drag after all other acceleration to make sure that very high drag coefficient works
     float old_velocity_magnitude = length(velocity);

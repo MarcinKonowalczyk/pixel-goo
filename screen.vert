@@ -25,6 +25,7 @@ void main() {
     velocity = length(vec2(texelFetch(velocity_buffer, buffer_position, 0)));
 
     gl_Position = vec4(screenNormalisedCoords(position), 0.0f, 1.0f);
-    gl_PointSize = 2.0f;
+    // gl_PointSize = 2.0f;
+    gl_PointSize = 1.0f;
 }
 )";
