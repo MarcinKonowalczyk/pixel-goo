@@ -7,10 +7,11 @@
 #include <utility>
 #include <fstream>
 
-#include <glad/glad.h>
+#include <glad.h>
 #include <GLFW/glfw3.h>
 
-#include <glm/vec2.hpp>
+#include <glm/glm.hpp>
+// #include <vec2.hpp>
 #include <glm/gtc/random.hpp>
 #include <glm/gtc/noise.hpp>
 

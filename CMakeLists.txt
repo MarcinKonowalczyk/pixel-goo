@@ -18,7 +18,6 @@ add_subdirectory( lib/glfw )
 
 add_subdirectory( lib/glm )
 
-
 set(SOURCES
     main.cpp
     shader.cpp
@@ -31,7 +30,7 @@ target_include_directories(goo PUBLIC
     # lib/stb
     )
 
-target_link_libraries( goo glad glfw glm )
+target_link_libraries( goo PRIVATE glad glfw glm )
 
 
 
