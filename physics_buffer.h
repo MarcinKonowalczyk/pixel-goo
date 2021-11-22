@@ -5,25 +5,42 @@
 
 typedef int PBindex;
 
-#define PB_CURRENT 0
-#define PB_OTHER 1
+enum PBwhich {
+    current = 0,
+    other = 1
+};
+
+#define PB_1D GL_R32F
+#define PB_2D GL_RG32F
+#define PB_3D GL_RGB32F
+#define PB_4D GL_RGBA32F
 
 class PhysicsBuffer {
 public:
     const char* name;
     PBindex current;
     PBindex other;
-    PhysicsBuffer(const char* n, const int w, const int h,const GLuint* t, const GLuint* f) :
-        name(n), width(w), height(h), textures(t), framebuffers(f), current(0), other(1) {};
-    void allocate(const int which, const PBindex index, const char* data);
+    int width;
+    int height;
+    PhysicsBuffer(const char* n, const GLuint* t, const GLuint* f) :
+        name(n), width(0), height(0), textures(t), framebuffers(f), current(0), other(1), minmag_filter(GL_NONE), wrap_st(GL_NONE), dim(PB_1D) {};
+    void allocate(const PBwhich which, const PBindex index, const int width, const int height, const char* data);
+    void reallocate(const PBwhich which, const int width, const int height);
     void flip_buffers();
+    // void bind();
+    void bind(const PBwhich which);
+    void update();
+    void update(const int P);
+
+    GLuint minmag_filter;
+    GLuint wrap_st;
+    GLuint dim;
 
 private:
-    const int width;
-    const int height;
     const GLuint* textures;
     const GLuint* framebuffers;
-    void set_index(const int which, const PBindex index);
+    void set_index(const PBwhich which, const PBindex index);
+    PBindex* which2index(const PBwhich which);
 };
 
 #endif /* PHYSICS_BUFFER_H */

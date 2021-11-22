@@ -20,8 +20,15 @@ void main() {
     // delta_position += random(vec2(0,0) + VertexID + epoch_counter);
     // delta_position += +vec2(1.0, 1.0); // drift
 
-    vec2 new_position = position +  delta_position;
+    vec2 new_position = position + delta_position;
     new_position = mod(new_position, window_size);
+    
+    if ( isinf(new_position.x) || isnan(new_position.x ) ) {
+        new_position.x = window_size.x/2;
+    }
+    if ( isinf(new_position.y) || isnan(new_position.y ) ) {
+        new_position.y = window_size.y/2;
+    }
 
     out_position = vec4(new_position, 0.0, 1.0);
 }
