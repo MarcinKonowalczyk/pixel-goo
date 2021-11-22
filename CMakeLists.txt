@@ -21,6 +21,7 @@ add_subdirectory( lib/glm )
 set(SOURCES
     main.cpp
     shader.cpp
+    physics_buffer.cpp
 )
 
 add_executable( goo ${SOURCES} )

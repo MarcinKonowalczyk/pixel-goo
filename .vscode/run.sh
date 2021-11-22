@@ -12,24 +12,33 @@ DIR="${1%/*}/"
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 ROOT="${ROOT%/*}/"
 
-# Debug print
-echo "EXTENSION : ${EXTENSION}"
-echo "FILENAME : ${FILENAME}"
-echo "DIR : ${DIR}"
-echo "ROOT : ${ROOT}"
+# VERBOSE=true
+VERBOSE=false
+if $VERBOSE; then
+    echo "EXTENSION : ${EXTENSION}"
+    echo "FILENAME : ${FILENAME}"
+    echo "DIR : ${DIR}"
+    echo "ROOT : ${ROOT}"
+fi
 
-
-TARGET="goo"
-make --directory="$ROOT/build/"
-
-OUT=$?
-if [ $OUT == 0 ]; then
-    echo "bash: Running $TARGET..."
+if [ "$FILENAME" == "perlin_test.cpp" ]; then
     (
-        cd "$ROOT/build/";
-        "$ROOT/build/$TARGET";
+        cd "$DIR"
+        g++ -I "../lib/glm/" -Wall perlin_test.cpp -o perlin_test && ./perlin_test
     )
 else
-    echo "bash: Compilation failed";
-    exit $OUT
+    TARGET="goo"
+    make --directory="$ROOT/build/"
+
+    OUT=$?
+    if [ $OUT == 0 ]; then
+        echo "bash: Running $TARGET..."
+        (
+            cd "$ROOT/build/";
+            "$ROOT/build/$TARGET";
+        )
+    else
+        echo "bash: Compilation failed";
+        exit $OUT
+    fi
 fi

@@ -5,7 +5,9 @@
             "includePath": [
                 "/usr/local/include",
                 "${workspaceRoot}",
-                "./lib",
+                "./lib/glad",
+                "./lib/glm/glm",
+                "./lib/glm/glm/gtc",
                 "${workspaceRoot}/build/shaders"
             ],
             "defines": [],
@@ -22,7 +24,8 @@
                 "/Library/Frameworks"
             ],
             "compilerPath": "/usr/bin/clang",
-            "cppStandard": "c++11"
+            "cppStandard": "c++11",
+            "configurationProvider": "ms-vscode.cmake-tools"
         }
     ],
     "version": 4

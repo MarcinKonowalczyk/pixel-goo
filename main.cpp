@@ -1,4 +1,5 @@
 #include "shader.h"
+#include "physics_buffer.h"
 
 #include <iostream>
 
@@ -11,7 +12,6 @@
 #include <GLFW/glfw3.h>
 
 #include <glm/glm.hpp>
-// #include <vec2.hpp>
 #include <glm/gtc/random.hpp>
 #include <glm/gtc/noise.hpp>
 
@@ -72,9 +72,9 @@ const float trailIntensity = 0.06f;
 const float trailAlpha = 0.85f;
 // const float trailAlpha = 0.90f;
 const float trailRadius = 15.0f;
-const int trailMapDownsampling = 10;
+const int trailMapDownsampling = 5;
 // const int trailMapDownsampling = 20;
-const float trailVelocityFloor = 0.7;
+const float trailVelocityFloor = 0.6;
 int trail_width = width/trailMapDownsampling + 1;
 int trail_height = height/trailMapDownsampling + 1;
 
@@ -86,8 +86,9 @@ int trail_height = height/trailMapDownsampling + 1;
 // const int P = 16384; // <- render buffer max
 // const int P = 30000;
 // const int P = 160000;
-// const int P = 200000;
-const int P = 300000;
+const int P = 200000;
+// const int P = 300000;
+// const int P = 500000;
 // const int P = 1000000; // emmmmm...
 
 int physicsBufferWidth; // = P
@@ -161,45 +162,43 @@ int main() {
     // Texture 0 - Density map
     allocateMapBuffer(densityMapIndex, density_width, density_height);
 
-    // Texture 1 - Position buffer 1    
-    float margin = glm::min(width,height)*0.08;
+    // Texture 1 - Position buffer 1
+    float margin = glm::min(width, height)*0.1;
     // float box_edge = glm::min(width,height)*0.2;
     float noise_seed = 10*glfwGetTime() + glm::linearRand<float>(0, 1);
     // char* positions = (char*) malloc(2*P*sizeof(float));
     int N = physicsBufferWidth*physicsBufferHeight*2;
     float* positions = new float[N];
     for (int i = 0; i < N; i += 2) {
-        glm::vec2 position;
-        // glm::vec2 position = glm::clamp( glm::vec2( glm::gaussRand<float>(0.5, 0.5), glm::gaussRand<float>(0.5, 0.5)), 0.0f, 1.0f );
-        position = glm::vec2( glm::linearRand<float>(0, 1), glm::linearRand<float>(0, 1) );
-        // float noise_value;
-        // do {
-        //     position = glm::vec2( glm::linearRand<float>(0, 1), glm::linearRand<float>(0, 1) );
-        //     // noise_value = glm::perlin( glm::vec3( position.x*4, position.y*4, noise_seed)) + 0.5;
-        //     noise_value = 2*glm::perlin( glm::vec3( position.x*50, position.y*50, noise_seed));
-        //     noise_value *= 10*glm::perlin( glm::vec3( position.x*4, position.y*4, noise_seed));
-        //     noise_value = glm::clamp( noise_value, 0.1f, 1.0f);
-        // } while (glm::linearRand<float>(0, 1) < noise_value);
+        // Generate random position in unit range
+        glm::vec2 position = glm::vec2( glm::linearRand<float>(0, 1), glm::linearRand<float>(0, 1) );
+        glm::vec2 noise = glm::vec2(
+                glm::perlin( glm::vec3( 10*position.x, 10*position.y, noise_seed)),
+                glm::perlin( glm::vec3( 10*position.x, 10*position.y, noise_seed+1))
+            );
+        position += 0.1f * glm::mod(noise , 1.0f);
+
+        // Cull position to the center of the screen
         position *= ( glm::vec2( width, height ) - 2*margin );
         position += margin;
 
-        // position = glm::diskRand(1.0) * (double)box_edge;
-        // position = glm::vec2( glm::linearRand<float>(-1, 1), glm::linearRand<float>(-1, 1) )*box_edge;
-        // position += glm::vec2(width/2,height/2);
         positions[i] = position.x;
         positions[i+1] = position.y;
     }
 
+    PhysicsBuffer PositionBuffer = PhysicsBuffer("Position buffer", physicsBufferWidth, physicsBufferHeight, textures, framebuffers);
+    PositionBuffer.allocate(PB_CURRENT, positionBufferIndex1, (const char*) positions);
     allocatePhysicsBuffer(positionBufferIndex1, (const char*) positions);
     delete[] positions;
 
     // Texture 2,3,4 - position buffer 2, velocity buffer 1 and 2
-    float* emptyPhysicsBuffer = new float[N];
-    for (int i = 0; i < N; i++ ) { emptyPhysicsBuffer[i] = 0; }
-    allocatePhysicsBuffer(positionBufferIndex2, (const char*) emptyPhysicsBuffer);
-    allocatePhysicsBuffer(velocityBufferIndex1, (const char*) emptyPhysicsBuffer);
-    allocatePhysicsBuffer(velocityBufferIndex2, (const char*) emptyPhysicsBuffer);
-    delete[] emptyPhysicsBuffer;
+    float* empty = new float[N];
+    for (int i = 0; i < N; i++ ) { empty[i] = 0; }
+    PositionBuffer.allocate(PB_OTHER, positionBufferIndex2, (const char*) empty);
+    allocatePhysicsBuffer(positionBufferIndex2, (const char*) empty);
+    allocatePhysicsBuffer(velocityBufferIndex1, (const char*) empty);
+    allocatePhysicsBuffer(velocityBufferIndex2, (const char*) empty);
+    delete[] empty;
 
     // Texture 5,6 - Trail double map
     allocateMapBuffer(trailMapIndex1, trail_width, trail_height);
@@ -225,8 +224,8 @@ int main() {
     velocityShader.setUniform("mouse_position", 2, mouse_position);
 
     // Position and velocity double buffer pointers
-    int currentPositionBuffer = positionBufferIndex1; // Start by using buffer 1
-    int otherPositionBuffer = positionBufferIndex2;
+    // int currentPositionBuffer = positionBufferIndex1; // Start by using buffer 1
+    // int otherPositionBuffer = positionBufferIndex2;
     int currentVelocityBuffer = velocityBufferIndex1;
     int otherVelocityBuffer = velocityBufferIndex2;
     int currentTrailMap = trailMapIndex1;
@@ -243,7 +242,7 @@ int main() {
 
     while (!glfwWindowShouldClose(window)) {
 
-        otherPositionBuffer = currentPositionBuffer == positionBufferIndex1 ? positionBufferIndex2 : positionBufferIndex1;
+        // otherPositionBuffer = currentPositionBuffer == positionBufferIndex1 ? positionBufferIndex2 : positionBufferIndex1;
         otherVelocityBuffer = currentVelocityBuffer == velocityBufferIndex1 ? velocityBufferIndex2 : velocityBufferIndex1;
         otherTrailMap = currentTrailMap == trailMapIndex1 ? trailMapIndex2 : trailMapIndex1;
 
@@ -254,7 +253,8 @@ int main() {
         // Velocity pass
         // velocityShader.use()
         velocityShader.setUniform("mouse_position", 2, mouse_position);
-        velocityShader.setUniform("position_buffer", currentPositionBuffer);
+        // velocityShader.setUniform("position_buffer", currentPositionBuffer);
+        velocityShader.setUniform("position_buffer", PositionBuffer.current);
         velocityShader.setUniform("velocity_buffer", currentVelocityBuffer);
         velocityShader.setUniform("trail_map", currentTrailMap);
         velocityShader.setUniform("epoch_counter", epoch_counter);
@@ -265,17 +265,20 @@ int main() {
 
         // Position pass
         // positionShader.use()
-        positionShader.setUniform("position_buffer", currentPositionBuffer);
+        // positionShader.setUniform("position_buffer", currentPositionBuffer);
+        positionShader.setUniform("position_buffer", PositionBuffer.current);
         positionShader.setUniform("velocity_buffer", otherVelocityBuffer); // read from updated velocity buffer
         
-        glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[otherPositionBuffer]);
+        // glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[otherPositionBuffer]);
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[PositionBuffer.other]);
         glViewport(0, 0, physicsBufferWidth, physicsBufferHeight); // Change the viewport to the size of the 1D texture vector
         glClear(GL_COLOR_BUFFER_BIT); // Dont need to clear it as its writing to each pixel anyway
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
         // Density map pass
         // densityMapShader.use();
-        densityMapShader.setUniform("position_buffer", otherPositionBuffer);
+        // densityMapShader.setUniform("position_buffer", otherPositionBuffer);
+        densityMapShader.setUniform("position_buffer", PositionBuffer.other);
 
         glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[densityMapIndex]);
         glViewport(0, 0, density_width, density_height);
@@ -293,13 +296,15 @@ int main() {
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4); // Need to only write 4 points since vertex shader makes them into a quad over the entire screen anyway
         
         // trailSecondShader.use(); // Second pass
-        trailSecondShader.setUniform("position_buffer", otherPositionBuffer);
+        // trailSecondShader.setUniform("position_buffer", otherPositionBuffer);
+        trailSecondShader.setUniform("position_buffer", PositionBuffer.other);
         trailSecondShader.setUniform("velocity_buffer", otherVelocityBuffer);
         glDrawArrays(GL_POINTS, 0, P);
 
         // Screen rendering pass
         // screenRenderingShader.use()
-        screenRenderingShader.setUniform("position_buffer", otherPositionBuffer);
+        // screenRenderingShader.setUniform("position_buffer", otherPositionBuffer);
+        screenRenderingShader.setUniform("position_buffer", PositionBuffer.other);
         screenRenderingShader.setUniform("velocity_buffer", otherVelocityBuffer);
 
         // glUseProgram(densityMapShader);
@@ -335,7 +340,8 @@ int main() {
         glfwPollEvents();
 
         // Swap double buffers
-        currentPositionBuffer = otherPositionBuffer;
+        PositionBuffer.flip_buffers();
+        // currentPositionBuffer = otherPositionBuffer;
         currentVelocityBuffer = otherVelocityBuffer;
         currentTrailMap = otherTrailMap;
         epoch_counter++;
