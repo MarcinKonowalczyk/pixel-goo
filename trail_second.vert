@@ -1,10 +1,10 @@
 #version 330 core
 
-// uniform sampler2D trail_map;
+// uniform sampler2D trail_buffer;
 
 uniform vec2 window_size;
 uniform vec2 physics_buffer_size;
-uniform int trail_map_downsampling;
+uniform int trail_buffer_downsampling;
 uniform float kernel_radius;
 
 uniform sampler2D position_buffer;
@@ -23,6 +23,6 @@ void main() {
     velocity = vec2(texelFetch(velocity_buffer, buffer_position, 0));
 
     gl_Position = vec4(screenNormalisedCoordinates(position), 0.0f, 1.0f);
-    gl_PointSize = kernel_radius/trail_map_downsampling;
+    gl_PointSize = kernel_radius/trail_buffer_downsampling;
     // gl_PointSize = 10.0f;
 }

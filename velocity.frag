@@ -11,7 +11,7 @@ layout(pixel_center_integer) in vec4 gl_FragCoord;
 out vec4 out_velocity;
 
 uniform sampler2D density_map;
-uniform sampler2D trail_map;
+uniform sampler2D trail_buffer;
 
 #ifdef MOUSE_REPELL
 uniform vec2 mouse_position;
@@ -186,10 +186,10 @@ void main() {
 #ifdef MOUSE_REPELL
     if (!inmouseradius) {
 #endif /* MOUSE_REPELL */
-        // vec2 trail_integral = textureVWI(trail_map, position, velocity, PI*0.5, 50, 20, 100);
-        // vec2 trail_integral = textureVWI(trail_map, position, velocity, PI*0.6, 30, 10, 100);
-        vec2 trail_integral = textureVWI(trail_map, position, velocity, PI*0.6, 30, 10, 20);
-        // vec2 trail_integral = textureVWI(trail_map, position, velocity, PI*0.5, 30, 10, 100);
+        // vec2 trail_integral = textureVWI(trail_buffer, position, velocity, PI*0.5, 50, 20, 100);
+        // vec2 trail_integral = textureVWI(trail_buffer, position, velocity, PI*0.6, 30, 10, 100);
+        vec2 trail_integral = textureVWI(trail_buffer, position, velocity, PI*0.6, 30, 10, 20);
+        // vec2 trail_integral = textureVWI(trail_buffer, position, velocity, PI*0.5, 30, 10, 100);
         // new_velocity += 0.07 * trail_integral;
         // new_velocity += clamp(1-density,0.2,1.0) * 0.05 * trail_integral;
         new_velocity += clamp((1-(density * density * density)), 0.8, 1) * 0.07 * trail_integral;

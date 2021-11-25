@@ -3,7 +3,7 @@
 uniform vec2 window_size;
 uniform vec2 physics_buffer_size;
 uniform sampler2D position_buffer;
-uniform int density_map_downsampling;
+uniform int density_buffer_downsampling;
 uniform float kernel_radius;
 
 void main() {
@@ -15,5 +15,5 @@ void main() {
         );
 
     gl_Position = vec4(normalised_coordinates.x, normalised_coordinates.y, 0.0f, 1.0f);
-    gl_PointSize = kernel_radius/density_map_downsampling;
+    gl_PointSize = kernel_radius/density_buffer_downsampling;
 }
