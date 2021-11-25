@@ -22,8 +22,8 @@ GLFWwindow* window;
 int width = 800; int height = 600;
 // int width = 400; int height = 400;
 const char* title = "Pixel Goo";
-const bool fullscreen = false;
-// const bool fullscreen = true;
+// const bool fullscreen = false;
+const bool fullscreen = true;
 // int whichMonitor = 0;
 int whichMonitor = 1;
 
@@ -96,8 +96,8 @@ const int P = 200000;
 // const int P = 500000;
 // const int P = 1000000; // emmmmm...
 
-int physicsBufferWidth; // = P
-int physicsBufferHeight; // P/max_line_width
+// int PBwidth; // = P
+// int PBheight; // P/max_line_width
 
 void window_setup();
 void shader_setup();
@@ -144,20 +144,10 @@ int main() {
     updateShaderWindowShape(width, height);
 
     // Calculate size of the physics buffer
-    GLint max_renderbuffer_size;
-    glGetIntegerv(GL_MAX_RENDERBUFFER_SIZE, &max_renderbuffer_size);
-    physicsBufferWidth = ceil(sqrt(P));
-    physicsBufferHeight = ceil(P/sqrt(P));
-    if (physicsBufferWidth > max_renderbuffer_size) {
-        std::cerr << "Physics framebuffer width (" << physicsBufferWidth << ") larger than renderbuffer size (" << max_renderbuffer_size << ")" << std::endl;
-        exit(EXIT_FAILURE);
-    }
-    if (physicsBufferHeight > max_renderbuffer_size) {
-        std::cerr << "Physics framebuffer height (" << physicsBufferHeight << ") larger than renderbuffer size (" << max_renderbuffer_size << ")" << std::endl;
-        exit(EXIT_FAILURE);
-    }
-    std::cout << "Physics framebuffer shape: (" << physicsBufferWidth << ", " << physicsBufferHeight << ")" << std::endl;
-    updateShaderPhysicsBufferShape(physicsBufferWidth, physicsBufferHeight);
+    int PBwidth = ceil(sqrt(P));
+    int PBheight = ceil(P/sqrt(P));
+    fprintf(stdout, "Physics framebuffer shape: %d x %d\n", PBwidth, PBheight);
+    updateShaderPhysicsBufferShape(PBwidth, PBheight);
 
     // Initalise textures and the associated framebuffers
     glGenTextures(7, textures);
@@ -166,20 +156,20 @@ int main() {
     // Texture 0 - Density map
     densityBuffer.minmag_filter = GL_LINEAR;
     densityBuffer.wrap_st = GL_REPEAT;
-    densityBuffer.dim = PB_1D;
+    densityBuffer.dim = PBE_1D;
     densityBuffer.allocate(current, densityBufferIndex, density_width, density_height, NULL);
 
     positionBuffer.minmag_filter = GL_NEAREST;
-    positionBuffer.dim = PB_2D;
+    positionBuffer.dim = PBE_2D;
     velocityBuffer.minmag_filter = GL_NEAREST;
-    velocityBuffer.dim = PB_2D;
+    velocityBuffer.dim = PBE_2D;
 
     // Texture 1 - Position buffer 1
     float margin = glm::min(width, height)*0.1;
     // float box_edge = glm::min(width,height)*0.2;
     float noise_seed = 10*glfwGetTime() + glm::linearRand<float>(0, 1);
     // char* positions = (char*) malloc(2*P*sizeof(float));
-    int N = physicsBufferWidth*physicsBufferHeight*2;
+    int N = PBwidth*PBheight*2;
     float* positions = new float[N];
     for (int i = 0; i < N; i += 2) {
         // Generate random position in unit range
@@ -198,20 +188,20 @@ int main() {
         positions[i+1] = position.y;
     }
 
-    positionBuffer.allocate(current, positionBufferIndex1, physicsBufferWidth, physicsBufferHeight, (const char*) positions);
+    positionBuffer.allocate(current, positionBufferIndex1, PBwidth, PBheight, (const char*) positions);
     delete[] positions;
 
     // Texture 2,3,4 - position buffer 2, velocity buffer 1 and 2
     // float* empty = new float[N];
     // for (int i = 0; i < N; i++ ) { empty[i] = 0; }
-    positionBuffer.allocate(other, positionBufferIndex2, physicsBufferWidth, physicsBufferHeight, NULL);
-    velocityBuffer.allocate(current, velocityBufferIndex1, physicsBufferWidth, physicsBufferHeight, NULL);
-    velocityBuffer.allocate(other, velocityBufferIndex2, physicsBufferWidth, physicsBufferHeight, NULL);
+    positionBuffer.allocate(other, positionBufferIndex2, PBwidth, PBheight, NULL);
+    velocityBuffer.allocate(current, velocityBufferIndex1, PBwidth, PBheight, NULL);
+    velocityBuffer.allocate(other, velocityBufferIndex2, PBwidth, PBheight, NULL);
 
     // Texture 5,6 - Trail double map
     trailMap.minmag_filter = GL_LINEAR;
     trailMap.wrap_st = GL_REPEAT;
-    trailMap.dim = PB_1D;
+    trailMap.dim = PBE_1D;
     trailMap.allocate(current, trailMapIndex1, trail_width, trail_height, NULL);
     trailMap.allocate(other, trailMapIndex2,  trail_width, trail_height, NULL);
     // delete[] empty;
@@ -246,6 +236,18 @@ int main() {
 
     GLubyte* pixels = nullptr;
 
+
+    //======================================
+    //                                      
+    //  ##       #####    #####   #####   
+    //  ##      ##   ##  ##   ##  ##  ##  
+    //  ##      ##   ##  ##   ##  #####   
+    //  ##      ##   ##  ##   ##  ##      
+    //  ######   #####    #####   ##      
+    //                                      
+    //======================================
+
+    
     while (!glfwWindowShouldClose(window)) {
 
         // Poll mouse position
@@ -317,7 +319,7 @@ int main() {
         exp_average_flip_time == 0.0f
             ? exp_average_flip_time = delta_flip_time
             : exp_average_flip_time = alpha_flip_time*delta_flip_time + (1-alpha_flip_time)*exp_average_flip_time;
-        std::cout << "epoch: " << epoch_counter << " buffer flip time: " << exp_average_flip_time << "ms" << std::endl;
+        fprintf(stdout, "epoch: %03d buffer flip time: %.2f ms\n", epoch_counter, exp_average_flip_time);
 
         glfwPollEvents();
         epoch_counter++;
@@ -498,26 +500,6 @@ void updateShaderPhysicsBufferShape(int new_width, int new_height) {
     trailShaderSecond.setUniform("physics_buffer_size", 2, buffer_shape);
 }
 
-// void allocateMapBuffer(const int mapIndex, const int width, const int height) {
-//     glActiveTexture(GL_TEXTURE0 + mapIndex);
-//     glBindTexture(GL_TEXTURE_2D, textures[mapIndex]);
-//     // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-//     // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-//     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-//     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-//     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-//     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-//     glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0, GL_RED, GL_FLOAT, NULL);
-
-//     // Bind the density map to a frame buffer
-//     glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[mapIndex]);
-//     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textures[mapIndex], 0);
-//     if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-//         fprintf(stderr, "ERROR::FRAMEBUFFER:: Framebuffer is not complete!\n");
-//         exit(EXIT_FAILURE);
-//     }
-// }
-
 void saveFrame(const int epoch_counter, unsigned int width, unsigned int height, GLubyte** pixels) {
 
     // Construct filename
@@ -544,5 +526,4 @@ void saveFrame(const int epoch_counter, unsigned int width, unsigned int height,
     fout.write((char*) *pixels, pixels_s);
 
     fout.close();
-    // fclose(f);
 }
