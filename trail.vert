@@ -3,7 +3,7 @@
 // uniform sampler2D trail_buffer;
 
 uniform vec2 window_shape;
-uniform vec2 physics_buffer_size;
+uniform vec2 buffer_size;
 uniform int trail_buffer_downsampling;
 uniform float kernel_radius;
 
@@ -18,7 +18,7 @@ vec2 screenNormalisedCoordinates(vec2 coordinate) {
 }
 
 void main() {
-    ivec2 buffer_position = ivec2(gl_VertexID % int(physics_buffer_size.x), gl_VertexID / int(physics_buffer_size.y));
+    ivec2 buffer_position = ivec2(gl_VertexID % int(buffer_size.x), gl_VertexID / int(buffer_size.y));
     vec2 position = vec2(texelFetch(position_buffer, buffer_position, 0));
     velocity = vec2(texelFetch(velocity_buffer, buffer_position, 0));
 

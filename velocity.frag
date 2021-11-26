@@ -239,9 +239,13 @@ void main() {
     drag_magnitude = min(velocity_magnitude, drag_magnitude); // Cap drag as to not push particles the other way
     new_velocity -= drag_magnitude * velocity_normal;
 
-    if (any(isnan(new_velocity)) || any(isinf(new_velocity))) {
-        new_velocity = vec2(0,0);
-    }
+    // if (any(isnan(new_velocity)) || any(isinf(new_velocity))) {
+    //     new_velocity = vec2(0,0);
+    // }
+
+    // If the velocity got messed up somehow, recover it to a small random value
+    if ( isinf(new_velocity.x) || isnan(new_velocity.x ) ) { new_velocity.x = random(vec2(-1,-1) + VertexID + epoch_counter).x; }
+    if ( isinf(new_velocity.y) || isnan(new_velocity.y ) ) { new_velocity.y = random(vec2(-1,-1) + VertexID + epoch_counter).y; }
 
     out_velocity = vec4(new_velocity, 0.0, 1.0);
 }
