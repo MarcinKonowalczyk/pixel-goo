@@ -40,58 +40,58 @@ target_link_libraries( goo PRIVATE glad glfw glm )
 ###################################################################
 
 # Set shaders directory and create it at build generation time
-set(SHADERS_DIR ${CMAKE_CURRENT_BINARY_DIR}/shaders)
-file(MAKE_DIRECTORY ${SHADERS_DIR})
+set(cmake_shaders_dir ${CMAKE_CURRENT_BINARY_DIR}/shaders)
+file(MAKE_DIRECTORY ${cmake_shaders_dir})
 
 add_custom_command(
-    OUTPUT ${SHADERS_DIR}/copy.h
-    COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/embed_shader.py ${CMAKE_CURRENT_SOURCE_DIR}/copy.vert ${CMAKE_CURRENT_SOURCE_DIR}/copy.frag ${SHADERS_DIR}/copy.h
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/embed_shader.py ${CMAKE_CURRENT_SOURCE_DIR}/copy.vert ${CMAKE_CURRENT_SOURCE_DIR}/copy.frag
+    OUTPUT ${cmake_shaders_dir}/copy.h
+    COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/embed_shader.py ${CMAKE_CURRENT_SOURCE_DIR}/shaders/copy.vert ${CMAKE_CURRENT_SOURCE_DIR}/shaders/copy.frag ${cmake_shaders_dir}/copy.h
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/embed_shader.py ${CMAKE_CURRENT_SOURCE_DIR}/shaders/copy.vert ${CMAKE_CURRENT_SOURCE_DIR}/shaders/copy.frag
 )
-add_custom_target( generate_copy DEPENDS ${SHADERS_DIR}/copy.h )
+add_custom_target( generate_copy DEPENDS ${cmake_shaders_dir}/copy.h )
 add_dependencies( goo generate_copy )
 
 add_custom_command(
-    OUTPUT ${SHADERS_DIR}/density.h
-    COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/embed_shader.py ${CMAKE_CURRENT_SOURCE_DIR}/density.vert ${CMAKE_CURRENT_SOURCE_DIR}/density.frag ${SHADERS_DIR}/density.h
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/embed_shader.py ${CMAKE_CURRENT_SOURCE_DIR}/density.vert ${CMAKE_CURRENT_SOURCE_DIR}/density.frag
+    OUTPUT ${cmake_shaders_dir}/density.h
+    COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/embed_shader.py ${CMAKE_CURRENT_SOURCE_DIR}/shaders/density.vert ${CMAKE_CURRENT_SOURCE_DIR}/shaders/density.frag ${cmake_shaders_dir}/density.h
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/embed_shader.py ${CMAKE_CURRENT_SOURCE_DIR}/shaders/density.vert ${CMAKE_CURRENT_SOURCE_DIR}/shaders/density.frag
 )
-add_custom_target( generate_density DEPENDS ${SHADERS_DIR}/density.h )
+add_custom_target( generate_density DEPENDS ${cmake_shaders_dir}/density.h )
 add_dependencies( goo generate_density )
 
 add_custom_command(
-    OUTPUT ${SHADERS_DIR}/position.h
-    COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/embed_shader.py ${CMAKE_CURRENT_SOURCE_DIR}/position.vert ${CMAKE_CURRENT_SOURCE_DIR}/position.frag ${SHADERS_DIR}/position.h
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/embed_shader.py ${CMAKE_CURRENT_SOURCE_DIR}/position.vert ${CMAKE_CURRENT_SOURCE_DIR}/position.frag
+    OUTPUT ${cmake_shaders_dir}/position.h
+    COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/embed_shader.py ${CMAKE_CURRENT_SOURCE_DIR}/shaders/position.vert ${CMAKE_CURRENT_SOURCE_DIR}/shaders/position.frag ${cmake_shaders_dir}/position.h
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/embed_shader.py ${CMAKE_CURRENT_SOURCE_DIR}/shaders/position.vert ${CMAKE_CURRENT_SOURCE_DIR}/shaders/position.frag
 )
-add_custom_target( generate_position DEPENDS ${SHADERS_DIR}/position.h )
+add_custom_target( generate_position DEPENDS ${cmake_shaders_dir}/position.h )
 add_dependencies( goo generate_position )
 
 add_custom_command(
-    OUTPUT ${SHADERS_DIR}/screen.h
-    COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/embed_shader.py ${CMAKE_CURRENT_SOURCE_DIR}/screen.vert ${CMAKE_CURRENT_SOURCE_DIR}/screen.frag ${SHADERS_DIR}/screen.h
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/embed_shader.py ${CMAKE_CURRENT_SOURCE_DIR}/screen.vert ${CMAKE_CURRENT_SOURCE_DIR}/screen.frag
+    OUTPUT ${cmake_shaders_dir}/screen.h
+    COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/embed_shader.py ${CMAKE_CURRENT_SOURCE_DIR}/shaders/screen.vert ${CMAKE_CURRENT_SOURCE_DIR}/shaders/screen.frag ${cmake_shaders_dir}/screen.h
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/embed_shader.py ${CMAKE_CURRENT_SOURCE_DIR}/shaders/screen.vert ${CMAKE_CURRENT_SOURCE_DIR}/shaders/screen.frag
 )
-add_custom_target( generate_screen DEPENDS ${SHADERS_DIR}/screen.h )
+add_custom_target( generate_screen DEPENDS ${cmake_shaders_dir}/screen.h )
 add_dependencies( goo generate_screen )
 
 add_custom_command(
-    OUTPUT ${SHADERS_DIR}/trail.h
-    COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/embed_shader.py ${CMAKE_CURRENT_SOURCE_DIR}/trail.vert ${CMAKE_CURRENT_SOURCE_DIR}/trail.frag ${SHADERS_DIR}/trail.h
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/embed_shader.py ${CMAKE_CURRENT_SOURCE_DIR}/trail.vert ${CMAKE_CURRENT_SOURCE_DIR}/trail.frag
+    OUTPUT ${cmake_shaders_dir}/trail.h
+    COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/embed_shader.py ${CMAKE_CURRENT_SOURCE_DIR}/shaders/trail.vert ${CMAKE_CURRENT_SOURCE_DIR}/shaders/trail.frag ${cmake_shaders_dir}/trail.h
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/embed_shader.py ${CMAKE_CURRENT_SOURCE_DIR}/shaders/trail.vert ${CMAKE_CURRENT_SOURCE_DIR}/shaders/trail.frag
 )
-add_custom_target( generate_trail DEPENDS ${SHADERS_DIR}/trail.h )
+add_custom_target( generate_trail DEPENDS ${cmake_shaders_dir}/trail.h )
 add_dependencies( goo generate_trail )
 
 add_custom_command(
-    OUTPUT ${SHADERS_DIR}/velocity.h
-    COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/embed_shader.py ${CMAKE_CURRENT_SOURCE_DIR}/velocity.vert ${CMAKE_CURRENT_SOURCE_DIR}/velocity.frag ${SHADERS_DIR}/velocity.h
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/embed_shader.py ${CMAKE_CURRENT_SOURCE_DIR}/velocity.vert ${CMAKE_CURRENT_SOURCE_DIR}/velocity.frag
+    OUTPUT ${cmake_shaders_dir}/velocity.h
+    COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/embed_shader.py ${CMAKE_CURRENT_SOURCE_DIR}/shaders/velocity.vert ${CMAKE_CURRENT_SOURCE_DIR}/shaders/velocity.frag ${cmake_shaders_dir}/velocity.h
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/embed_shader.py ${CMAKE_CURRENT_SOURCE_DIR}/shaders/velocity.vert ${CMAKE_CURRENT_SOURCE_DIR}/shaders/velocity.frag
 )
-add_custom_target( generate_velocity DEPENDS ${SHADERS_DIR}/velocity.h )
+add_custom_target( generate_velocity DEPENDS ${cmake_shaders_dir}/velocity.h )
 add_dependencies( goo generate_velocity )
 
-target_include_directories( goo PUBLIC ${SHADERS_DIR} )
+target_include_directories( goo PUBLIC ${cmake_shaders_dir} )
 
 ###################################################################
 # End of automatically generated block                            #

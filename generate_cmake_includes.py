@@ -10,22 +10,22 @@ HEADER = """
 ###################################################################
 
 # Set shaders directory and create it at build generation time
-set(SHADERS_DIR @{h_dir}@)
-file(MAKE_DIRECTORY ${SHADERS_DIR})
+set(cmake_shaders_dir @{h_dir}@)
+file(MAKE_DIRECTORY ${cmake_shaders_dir})
 """
 
 BODY = """
 add_custom_command(
-    OUTPUT ${SHADERS_DIR}/@{program}@.h
-    COMMAND python3 @{embed_shader_py_dir}@ @{shader_sources}@ ${SHADERS_DIR}/@{program}@.h
+    OUTPUT ${cmake_shaders_dir}/@{program}@.h
+    COMMAND python3 @{embed_shader_py_dir}@ @{shader_sources}@ ${cmake_shaders_dir}/@{program}@.h
     DEPENDS @{embed_shader_py_dir}@ @{shader_sources}@
 )
-add_custom_target( generate_@{program}@ DEPENDS ${SHADERS_DIR}/@{program}@.h )
+add_custom_target( generate_@{program}@ DEPENDS ${cmake_shaders_dir}/@{program}@.h )
 add_dependencies( @{main_target_name}@ generate_@{program}@ )
 """
 
 FOOTER = """
-target_include_directories( @{main_target_name}@ PUBLIC ${SHADERS_DIR} )
+target_include_directories( @{main_target_name}@ PUBLIC ${cmake_shaders_dir} )
 
 ###################################################################
 # End of automatically generated block                            #
@@ -35,7 +35,8 @@ target_include_directories( @{main_target_name}@ PUBLIC ${SHADERS_DIR} )
 
 main_target_name = "goo"
 embed_shader_py_dir = "${CMAKE_CURRENT_SOURCE_DIR}/embed_shader.py"
-shaders_dir = "${CMAKE_CURRENT_SOURCE_DIR}"
+shaders_dir = "./shaders"
+cmake_shaders_dir = "${CMAKE_CURRENT_SOURCE_DIR}/shaders"
 h_dir = "${CMAKE_CURRENT_BINARY_DIR}/shaders"
 
 # https://stackoverflow.com/a/26531467/2531987
@@ -55,7 +56,7 @@ programs = defaultdict(list)
 
 
 # Find all shaders for each program
-for file in os.listdir("."):
+for file in os.listdir(shaders_dir):
     name, ext = os.path.splitext(file)
     if ext in glsl_pipeline_order:
         programs[name].append(ext)
@@ -71,7 +72,7 @@ sources = []
 for program, shaders in programs.items():
     source = ""
     for shader in shaders:
-        source += f"{shaders_dir}/{program}{shader} "
+        source += f"{cmake_shaders_dir}/{program}{shader} "
     source = source[:-1]
     sources.append((program, source))
 

@@ -48,7 +48,13 @@ Note that system-dependent libraries have to be statically linked (`-static`), a
 
 ## ToDo's
 
-- [ ] fullscreen mode is a bit janky still
+- [ ] add text rendering shader
+- [x] automagically include shader files at compile time
+- [ ] fullscreen mode is still a bit janky
 - [x] no acceleration and velocity shaders
 - [x] no velocity double buffer
-- [ ] no frame rendering
+- [x] fix segfault buggs
+- [ ] ? add frame rendering
+- [ ] trail buffer colormap sampling
+- [ ] screen rendering shader could blend between density and trail colormap
+- [ ] ? better lerp in screen rendering shader
