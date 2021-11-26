@@ -6,8 +6,8 @@ layout(pixel_center_integer) in vec4 gl_FragCoord;
 uniform int epoch_counter;
 in float VertexID;
 
-uniform sampler2D density_map;
-uniform vec2 window_size;
+uniform sampler2D density_buffer;
+uniform vec2 window_shape;
 
 in float velocity;
 
@@ -78,7 +78,7 @@ const vec4 color2 = vec4(0.925f, 0.69f, 0.208f, 0.8f);
 
 void main() {
     vec2 position = gl_FragCoord.xy;
-    float density = texture(density_map, position/window_size).x;
+    float density = texture(density_buffer, position/window_shape).x;
 
     // Discard high density points
     float norm_density = density*0.80;

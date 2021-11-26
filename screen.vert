@@ -1,6 +1,6 @@
 #version 330 core
 
-uniform vec2 window_size;
+uniform vec2 window_shape;
 uniform vec2 physics_buffer_size;
 uniform sampler2D position_buffer;
 uniform sampler2D velocity_buffer;
@@ -9,10 +9,10 @@ out float velocity;
 out float VertexID;
 
 vec2 screenNormalisedCoords(vec2 coordinate) {
-    coordinate = mod(coordinate, window_size);
+    coordinate = mod(coordinate, window_shape);
     return vec2(
-        +coordinate.x/(window_size.x/2)-1,
-        -(coordinate.y/(window_size.y/2)-1)
+        +coordinate.x/(window_shape.x/2)-1,
+        -(coordinate.y/(window_shape.y/2)-1)
         );
 }
 

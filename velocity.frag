@@ -10,14 +10,14 @@
 layout(pixel_center_integer) in vec4 gl_FragCoord;
 out vec4 out_velocity;
 
-uniform sampler2D density_map;
+uniform sampler2D density_buffer;
 uniform sampler2D trail_buffer;
 
 #ifdef MOUSE_REPELL
 uniform vec2 mouse_position;
 #endif
 
-uniform vec2 window_size;
+uniform vec2 window_shape;
 in float VertexID;
 
 uniform int epoch_counter;
@@ -41,10 +41,10 @@ float modFloat(float x, float y) {
 
 // Textures are smaples from the *bottom* left corner, and in normalised coordinates
 vec2 textureNormalisedCoords(vec2 coordinate) {
-    coordinate = mod(coordinate, window_size);
+    coordinate = mod(coordinate, window_shape);
     return vec2(
-        +coordinate.x/window_size.x,
-        -(coordinate.y/window_size.y)
+        +coordinate.x/window_shape.x,
+        -(coordinate.y/window_shape.y)
         );
 }
 
@@ -112,7 +112,7 @@ vec2 mouseRepell(vec2 mouse_vector, float mouse_repell_radius, float mouse_repel
 
 // Mouse interaction
 #ifdef EDGE_REPELL
-vec2 edgeRepell(vec2 position, vec2 window_size, float edge_repell_radius, float edge_repell_coefficient) {
+vec2 edgeRepell(vec2 position, vec2 window_shape, float edge_repell_radius, float edge_repell_coefficient) {
     vec2 repell = vec2(0,0);
     float edge_vector_length;
     // Left edge repell
@@ -121,7 +121,7 @@ vec2 edgeRepell(vec2 position, vec2 window_size, float edge_repell_radius, float
         repell += vec2(-1,0) * (1-(edge_vector_length/edge_repell_radius)) * (1-(edge_vector_length/edge_repell_radius));
     }
     // Right edge repell
-    edge_vector_length = window_size.x-position.x;
+    edge_vector_length = window_shape.x-position.x;
     if (edge_vector_length < edge_repell_radius) {
         repell += vec2(1,0) * (1-(edge_vector_length/edge_repell_radius)) * (1-(edge_vector_length/edge_repell_radius));
     }
@@ -131,7 +131,7 @@ vec2 edgeRepell(vec2 position, vec2 window_size, float edge_repell_radius, float
         repell += vec2(0,-1) * (1-(edge_vector_length/edge_repell_radius)) * (1-(edge_vector_length/edge_repell_radius));
     }
     // Bottom edge repell
-    // edge_vector_length = window_size.y-position.y;
+    // edge_vector_length = window_shape.y-position.y;
     // if (edge_vector_length < edge_repell_radius) {
     //     repell += vec2(0,1) * (1-(edge_vector_length/edge_repell_radius)) * (1-(edge_vector_length/edge_repell_radius));
     // }
@@ -143,7 +143,7 @@ void main() {
     ivec2 buffer_position = ivec2(gl_FragCoord.xy);
     vec2 position = vec2(texelFetch(position_buffer, buffer_position, 0)); // current position
     vec2 velocity = vec2(texelFetch(velocity_buffer, buffer_position, 0)); // previous velocity
-    float density = texture(density_map, textureNormalisedCoords(position)).x;
+    float density = texture(density_buffer, textureNormalisedCoords(position)).x;
 
     vec2 new_velocity = velocity;
 
@@ -156,24 +156,24 @@ void main() {
     bool inmouseradius = length(mouse_vector) < mouse_repell_radius;
     
     // Screen wrap of mouse repell (basically add additional 8 mouse positions)
-    // new_velocity -= mouseRepell(mouse_vector + vec2(+window_size.x,0), mouse_repell_radius, mouse_repell_coefficient);
-    // new_velocity -= mouseRepell(mouse_vector + vec2(-window_size.x,0), mouse_repell_radius, mouse_repell_coefficient);
-    // new_velocity -= mouseRepell(mouse_vector + vec2(0,+window_size.y), mouse_repell_radius, mouse_repell_coefficient);
-    // new_velocity -= mouseRepell(mouse_vector + vec2(0,-window_size.y), mouse_repell_radius, mouse_repell_coefficient);
-    // new_velocity -= mouseRepell(mouse_vector + vec2(+window_size.x,+window_size.y), mouse_repell_radius, mouse_repell_coefficient);
-    // new_velocity -= mouseRepell(mouse_vector + vec2(-window_size.x,+window_size.y), mouse_repell_radius, mouse_repell_coefficient);
-    // new_velocity -= mouseRepell(mouse_vector + vec2(+window_size.x,-window_size.y), mouse_repell_radius, mouse_repell_coefficient);
-    // new_velocity -= mouseRepell(mouse_vector + vec2(-window_size.x,-window_size.y), mouse_repell_radius, mouse_repell_coefficient);
+    // new_velocity -= mouseRepell(mouse_vector + vec2(+window_shape.x,0), mouse_repell_radius, mouse_repell_coefficient);
+    // new_velocity -= mouseRepell(mouse_vector + vec2(-window_shape.x,0), mouse_repell_radius, mouse_repell_coefficient);
+    // new_velocity -= mouseRepell(mouse_vector + vec2(0,+window_shape.y), mouse_repell_radius, mouse_repell_coefficient);
+    // new_velocity -= mouseRepell(mouse_vector + vec2(0,-window_shape.y), mouse_repell_radius, mouse_repell_coefficient);
+    // new_velocity -= mouseRepell(mouse_vector + vec2(+window_shape.x,+window_shape.y), mouse_repell_radius, mouse_repell_coefficient);
+    // new_velocity -= mouseRepell(mouse_vector + vec2(-window_shape.x,+window_shape.y), mouse_repell_radius, mouse_repell_coefficient);
+    // new_velocity -= mouseRepell(mouse_vector + vec2(+window_shape.x,-window_shape.y), mouse_repell_radius, mouse_repell_coefficient);
+    // new_velocity -= mouseRepell(mouse_vector + vec2(-window_shape.x,-window_shape.y), mouse_repell_radius, mouse_repell_coefficient);
 #endif
 
     // Integrate density over a disk in a radius
 #ifdef MOUSE_REPELL
     // if (!inmouseradius) {
 #endif /* MOUSE_REPELL */
-        // vec2 density_integral = textureVDI(density_map, position, 30, 10, 100);
-        // vec2 density_integral = textureVDI(density_map, position, 20, 2, 100);
-        vec2 density_integral = textureVDI(density_map, position, 20, 2, 20);
-        // vec2 density_integral = textureVDI(density_map, position, 20, 2, 100);
+        // vec2 density_integral = textureVDI(density_buffer, position, 30, 10, 100);
+        // vec2 density_integral = textureVDI(density_buffer, position, 20, 2, 100);
+        vec2 density_integral = textureVDI(density_buffer, position, 20, 2, 20);
+        // vec2 density_integral = textureVDI(density_buffer, position, 20, 2, 100);
         // new_velocity -= 0.01 * density_integral;
         new_velocity -= 0.04 * density_integral;
         // new_velocity -= (1-density) * 0.02 * density_integral;
@@ -200,7 +200,7 @@ void main() {
 #ifdef EDGE_REPELL
     const float edge_repell_radius = 100;
     const float edge_repell_coefficient = 0.1;
-    new_velocity -= edgeRepell(position, window_size, edge_repell_radius, edge_repell_coefficient);
+    new_velocity -= edgeRepell(position, window_shape, edge_repell_radius, edge_repell_coefficient);
 #endif /* EDGE_REPELL */
 
     // Dither

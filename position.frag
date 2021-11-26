@@ -7,7 +7,7 @@ out vec4 out_position;
 
 in float VertexID;
 
-uniform vec2 window_size;
+uniform vec2 window_shape;
 uniform sampler2D position_buffer;
 uniform sampler2D velocity_buffer;
 
@@ -21,13 +21,13 @@ void main() {
     // delta_position += +vec2(1.0, 1.0); // drift
 
     vec2 new_position = position + delta_position;
-    new_position = mod(new_position, window_size);
+    new_position = mod(new_position, window_shape);
     
     if ( isinf(new_position.x) || isnan(new_position.x ) ) {
-        new_position.x = window_size.x/2;
+        new_position.x = window_shape.x/2;
     }
     if ( isinf(new_position.y) || isnan(new_position.y ) ) {
-        new_position.y = window_size.y/2;
+        new_position.y = window_shape.y/2;
     }
 
     out_position = vec4(new_position, 0.0, 1.0);

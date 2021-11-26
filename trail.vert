@@ -2,7 +2,7 @@
 
 // uniform sampler2D trail_buffer;
 
-uniform vec2 window_size;
+uniform vec2 window_shape;
 uniform vec2 physics_buffer_size;
 uniform int trail_buffer_downsampling;
 uniform float kernel_radius;
@@ -13,8 +13,8 @@ uniform sampler2D velocity_buffer;
 out vec2 velocity;
 
 vec2 screenNormalisedCoordinates(vec2 coordinate) {
-    coordinate = mod(coordinate, window_size);
-    return vec2(+coordinate.x/(window_size.x/2)-1, -(coordinate.y/(window_size.y/2)-1));
+    coordinate = mod(coordinate, window_shape);
+    return vec2(+coordinate.x/(window_shape.x/2)-1, -(coordinate.y/(window_shape.y/2)-1));
 }
 
 void main() {

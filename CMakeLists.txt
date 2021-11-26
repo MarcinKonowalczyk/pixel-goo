@@ -34,15 +34,22 @@ target_include_directories(goo PUBLIC
 target_link_libraries( goo PRIVATE glad glfw glm )
 
 
-
 ###################################################################
 # Automatically generated block for inclusion of the shader files #
-# See "generate_cmake_shader_includes.py" for more information    #
+# See "generate_cmake_includes.py" for more information           #
 ###################################################################
 
 # Set shaders directory and create it at build generation time
 set(SHADERS_DIR ${CMAKE_CURRENT_BINARY_DIR}/shaders)
 file(MAKE_DIRECTORY ${SHADERS_DIR})
+
+add_custom_command(
+    OUTPUT ${SHADERS_DIR}/copy.h
+    COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/embed_shader.py ${CMAKE_CURRENT_SOURCE_DIR}/copy.vert ${CMAKE_CURRENT_SOURCE_DIR}/copy.frag ${SHADERS_DIR}/copy.h
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/embed_shader.py ${CMAKE_CURRENT_SOURCE_DIR}/copy.vert ${CMAKE_CURRENT_SOURCE_DIR}/copy.frag
+)
+add_custom_target( generate_copy DEPENDS ${SHADERS_DIR}/copy.h )
+add_dependencies( goo generate_copy )
 
 add_custom_command(
     OUTPUT ${SHADERS_DIR}/density.h
@@ -69,20 +76,12 @@ add_custom_target( generate_screen DEPENDS ${SHADERS_DIR}/screen.h )
 add_dependencies( goo generate_screen )
 
 add_custom_command(
-    OUTPUT ${SHADERS_DIR}/trail_first.h
-    COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/embed_shader.py ${CMAKE_CURRENT_SOURCE_DIR}/trail_first.vert ${CMAKE_CURRENT_SOURCE_DIR}/trail_first.frag ${SHADERS_DIR}/trail_first.h
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/embed_shader.py ${CMAKE_CURRENT_SOURCE_DIR}/trail_first.vert ${CMAKE_CURRENT_SOURCE_DIR}/trail_first.frag
+    OUTPUT ${SHADERS_DIR}/trail.h
+    COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/embed_shader.py ${CMAKE_CURRENT_SOURCE_DIR}/trail.vert ${CMAKE_CURRENT_SOURCE_DIR}/trail.frag ${SHADERS_DIR}/trail.h
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/embed_shader.py ${CMAKE_CURRENT_SOURCE_DIR}/trail.vert ${CMAKE_CURRENT_SOURCE_DIR}/trail.frag
 )
-add_custom_target( generate_trail_first DEPENDS ${SHADERS_DIR}/trail_first.h )
-add_dependencies( goo generate_trail_first )
-
-add_custom_command(
-    OUTPUT ${SHADERS_DIR}/trail_second.h
-    COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/embed_shader.py ${CMAKE_CURRENT_SOURCE_DIR}/trail_second.vert ${CMAKE_CURRENT_SOURCE_DIR}/trail_second.frag ${SHADERS_DIR}/trail_second.h
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/embed_shader.py ${CMAKE_CURRENT_SOURCE_DIR}/trail_second.vert ${CMAKE_CURRENT_SOURCE_DIR}/trail_second.frag
-)
-add_custom_target( generate_trail_second DEPENDS ${SHADERS_DIR}/trail_second.h )
-add_dependencies( goo generate_trail_second )
+add_custom_target( generate_trail DEPENDS ${SHADERS_DIR}/trail.h )
+add_dependencies( goo generate_trail )
 
 add_custom_command(
     OUTPUT ${SHADERS_DIR}/velocity.h
@@ -97,4 +96,5 @@ target_include_directories( goo PUBLIC ${SHADERS_DIR} )
 ###################################################################
 # End of automatically generated block                            #
 ###################################################################
+
 

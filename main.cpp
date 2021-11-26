@@ -44,12 +44,12 @@ Shader screenRenderingShader("screenRenderingShader");
 Shader densityShader("densityShader");
 Shader positionShader("positionShader");
 Shader velocityShader("velocityShader");
-Shader trailShaderFirst("trailShaderFirst");
-Shader trailShaderSecond("trailShaderSecond");
+Shader copyShader("copyShader");
+Shader trailShader("trailShader");
 
 // Include shader source files
-#include "trail_first.h"
-#include "trail_second.h"
+#include "copy.h"
+#include "trail.h"
 #include "screen.h"
 #include "density.h"
 #include "position.h"
@@ -87,27 +87,19 @@ int trail_width = width/trailBufferDownsampling + 1;
 int trail_height = height/trailBufferDownsampling + 1;
 
 // Particles
-// const float density = 200000/(1.0f*1920*1080);
-// const int P = width*height*density;./b
-// const int P = 11;
-// const int P = 5000;
 // const int P = 16384; // <- render buffer max
 // const int P = 30000;
 // const int P = 160000;
-const int P = 200000;
-// const int P = 300000;
+// const int P = 200000;
+const int P = 300000;
 // const int P = 500000;
 // const int P = 1000000; // emmmmm...
-
-// int PBwidth; // = P
-// int PBheight; // P/max_line_width
 
 void window_setup();
 void shader_setup();
 void buffer_setup();
 void updateShaderWindowShape(int width, int height);
 void updateShaderPhysicsBufferShape(int width, int height);
-// void allocateMapBuffer(const int mapIndex, const int width, const int height);
 void saveFrame(const int epoch_counter, unsigned int width, unsigned int height, GLubyte **pixels);
 
 //========================================
@@ -127,18 +119,18 @@ int main() {
     buffer_setup();
 
     // Write uniforms to shaders
-    screenRenderingShader.setUniform("density_map", densityBuffer.current);
+    screenRenderingShader.setUniform("density_buffer", densityBuffer.current);
     densityShader.setUniform("density_buffer_downsampling", densityBufferDownsampling);
     densityShader.setUniform("density_alpha", densityAlpha);
     densityShader.setUniform("kernel_radius", kernelRadius);
     velocityShader.setUniform("drag_coefficient", dragCoefficient);
     velocityShader.setUniform("dither_coefficient", ditherCoefficient);
-    velocityShader.setUniform("density_map", densityBuffer.current);
-    trailShaderFirst.setUniform("alpha", trailAlpha);
-    trailShaderSecond.setUniform("trail_buffer_downsampling", trailBufferDownsampling);
-    trailShaderSecond.setUniform("trail_intensity", trailIntensity);
-    trailShaderSecond.setUniform("velocity_floor", trailVelocityFloor);
-    trailShaderSecond.setUniform("kernel_radius", trailRadius);
+    velocityShader.setUniform("density_buffer", densityBuffer.current);
+    copyShader.setUniform("alpha", trailAlpha);
+    trailShader.setUniform("trail_buffer_downsampling", trailBufferDownsampling);
+    trailShader.setUniform("trail_intensity", trailIntensity);
+    trailShader.setUniform("velocity_floor", trailVelocityFloor);
+    trailShader.setUniform("kernel_radius", trailRadius);
 
     double xpos; double ypos;
     glfwGetCursorPos(window, &xpos, &ypos);
@@ -202,14 +194,14 @@ int main() {
         // Trail map
         trailBuffer.bind(other);
 
-        trailShaderFirst.use(); // First pass (alpha blend of the double buffer)
-        trailShaderFirst.setUniform("alpha", trailAlpha);
-        trailShaderFirst.setUniform("previous_trail_buffer", trailBuffer.current);
+        copyShader.use(); // First pass (alpha blend of the double buffer)
+        copyShader.setUniform("alpha", trailAlpha);
+        copyShader.setUniform("source_buffer", trailBuffer.current);
         trailBuffer.update();
 
-        trailShaderSecond.use(); // Second pass
-        trailShaderSecond.setUniform("position_buffer", positionBuffer.current);
-        trailShaderSecond.setUniform("velocity_buffer", velocityBuffer.current);
+        trailShader.use(); // Second pass
+        trailShader.setUniform("position_buffer", positionBuffer.current);
+        trailShader.setUniform("velocity_buffer", velocityBuffer.current);
         trailBuffer.update(P);
         trailBuffer.flip_buffers();
 
@@ -221,14 +213,16 @@ int main() {
         screenRenderingShader.setUniform("velocity_buffer", velocityBuffer.current);
         screenBuffer.update(P);
 
-        // densityShader.use();
-        // densityShader.setUniform("position_buffer", positionBuffer.current);
-        // densityShader.setUniform("density_buffer_downsampling", 1);
-        // screenBuffer.update(P);
+        // View density map
+        // copyShader.use();
+        // copyShader.setUniform("source_buffer", densityBuffer.current);
+        // copyShader.setUniform("alpha", 1.0f);
+        // screenBuffer.update();
 
-        // trailShaderFirst.use();
-        // trailShaderFirst.setUniform("previous_trail_buffer", trailBuffer.current);
-        // trailShaderFirst.setUniform("alpha", 1.0f);
+        // View trail map
+        // copyShader.use();
+        // copyShader.setUniform("source_buffer", trailBuffer.current);
+        // copyShader.setUniform("alpha", 1.0f);
         // screenBuffer.update();
 
         float flip_buffer_start = glfwGetTime();
@@ -389,27 +383,27 @@ void shader_setup() {
     velocityShader.compile(GL_FRAGMENT_SHADER, velocity_FragmentShaderSource);
     velocityShader.link();
 
-    trailShaderFirst.create();
-    trailShaderFirst.compile(GL_VERTEX_SHADER, trail_first_VertexShaderSource);
-    trailShaderFirst.compile(GL_FRAGMENT_SHADER, trail_first_FragmentShaderSource);
-    trailShaderFirst.link();
+    copyShader.create();
+    copyShader.compile(GL_VERTEX_SHADER, copy_VertexShaderSource);
+    copyShader.compile(GL_FRAGMENT_SHADER, copy_FragmentShaderSource);
+    copyShader.link();
 
-    trailShaderSecond.create();
-    trailShaderSecond.compile(GL_VERTEX_SHADER, trail_second_VertexShaderSource);
-    trailShaderSecond.compile(GL_FRAGMENT_SHADER, trail_second_FragmentShaderSource);
-    trailShaderSecond.link();
+    trailShader.create();
+    trailShader.compile(GL_VERTEX_SHADER, trail_VertexShaderSource);
+    trailShader.compile(GL_FRAGMENT_SHADER, trail_FragmentShaderSource);
+    trailShader.link();
 
     updateShaderWindowShape(width, height);
 }
 
 void updateShaderWindowShape(int new_width, int new_height) {
     float window_shape[2] = {(float)new_width, (float)new_height};
-    screenRenderingShader.setUniform("window_size", 2, window_shape);
-    densityShader.setUniform("window_size", 2, window_shape);
-    positionShader.setUniform("window_size", 2, window_shape);
-    velocityShader.setUniform("window_size", 2, window_shape);
-    // trailShaderFirst.setUniform("window_size", 2, window_shape);
-    trailShaderSecond.setUniform("window_size", 2, window_shape);
+    screenRenderingShader.setUniform("window_shape", 2, window_shape);
+    densityShader.setUniform("window_shape", 2, window_shape);
+    positionShader.setUniform("window_shape", 2, window_shape);
+    velocityShader.setUniform("window_shape", 2, window_shape);
+    // copyShader.setUniform("window_shape", 2, window_shape);
+    trailShader.setUniform("window_shape", 2, window_shape);
     screenBuffer.width = new_width;
     screenBuffer.height = new_height;
 }
@@ -420,8 +414,8 @@ void updateShaderPhysicsBufferShape(int new_width, int new_height) {
     densityShader.setUniform("physics_buffer_size", 2, buffer_shape);
     // positionShader.setUniform("physics_buffer_size", 2, buffer_shape);
     // velocityShader.setUniform("physics_buffer_size", 2, buffer_shape);
-    // trailShaderFirst.setUniform("physics_buffer_size", 2, buffer_shape);
-    trailShaderSecond.setUniform("physics_buffer_size", 2, buffer_shape);
+    // copyShader.setUniform("physics_buffer_size", 2, buffer_shape);
+    trailShader.setUniform("physics_buffer_size", 2, buffer_shape);
 }
 
 //===================================================
@@ -466,7 +460,7 @@ void buffer_setup() {
     glGenFramebuffers(7, framebuffers);
 
     // Texture 0 - Density map
-    densityBuffer.minmag_filter = GL_LINEAR;
+    densityBuffer.minmag_filter = GL_NEAREST; // GL_LINEAR
     densityBuffer.wrap_st = GL_REPEAT;
     densityBuffer.dim = PBE_1D;
     densityBuffer.allocate(current, densityBufferIndex, density_width, density_height, NULL);
@@ -509,7 +503,7 @@ void buffer_setup() {
     velocityBuffer.allocate(other, velocityBufferIndex2, PBwidth, PBheight, NULL);
 
     // Texture 5,6 - Trail double map
-    trailBuffer.minmag_filter = GL_LINEAR;
+    trailBuffer.minmag_filter = GL_NEAREST;
     trailBuffer.wrap_st = GL_REPEAT;
     trailBuffer.dim = PBE_1D;
     trailBuffer.allocate(current, trailBufferIndex1, trail_width, trail_height, NULL);
