@@ -22,10 +22,10 @@ GLFWwindow* window;
 int width = 800; int height = 600;
 // int width = 400; int height = 400;
 const char* title = "Pixel Goo";
-const bool fullscreen = false;
-// const bool fullscreen = true;
-// int whichMonitor = 0;
-int whichMonitor = 1;
+// const bool fullscreen = false;
+const bool fullscreen = true;
+int whichMonitor = 0;
+// int whichMonitor = 1;
 
 // Textures and framebuffers
 GLuint textures[7];
@@ -40,7 +40,7 @@ const PBindex trailBufferIndex2 = 6;
 
 GLuint vertex_buffer;
 
-Shader screenRenderingShader("screenRenderingShader");
+Shader screenShader("screenShader");
 Shader densityShader("densityShader");
 Shader positionShader("positionShader");
 Shader velocityShader("velocityShader");
@@ -80,7 +80,7 @@ const float trailIntensity = 0.06f;
 const float trailAlpha = 0.85f;
 // const float trailAlpha = 0.90f;
 const float trailRadius = 15.0f;
-const int trailBufferDownsampling = 10;
+const int trailBufferDownsampling = 5;
 // const int trailBufferDownsampling = 20;
 const float trailVelocityFloor = 0.6;
 int trail_width = width/trailBufferDownsampling + 1;
@@ -90,9 +90,9 @@ int trail_height = height/trailBufferDownsampling + 1;
 // const int P = 16384; // <- render buffer max
 // const int P = 30000;
 // const int P = 160000;
-// const int P = 200000;
+const int P = 200000;
 // const int P = 300000;
-const int P = 500000;
+// const int P = 500000;
 // const int P = 1000000; // emmmmm...
 
 void window_setup();
@@ -119,7 +119,7 @@ int main() {
     buffer_setup();
 
     // Write uniforms to shaders
-    screenRenderingShader.setUniform("density_buffer", densityBuffer.current);
+    screenShader.setUniform("density_buffer", densityBuffer.current);
     densityShader.setUniform("density_buffer_downsampling", densityBufferDownsampling);
     densityShader.setUniform("density_alpha", densityAlpha);
     densityShader.setUniform("kernel_radius", kernelRadius);
@@ -180,6 +180,7 @@ int main() {
         positionShader.use();
         positionShader.setUniform("position_buffer", positionBuffer.current);
         positionShader.setUniform("velocity_buffer", velocityBuffer.current); // read from updated velocity buffer
+        // positionShader.setUniform("epoch_counter", epoch_counter);
         positionBuffer.bind(other);
         // positionBuffer.update();
         positionBuffer.update();
@@ -209,9 +210,10 @@ int main() {
         // Screen rendering pass
         screenBuffer.bind(screen);
         
-        screenRenderingShader.use();
-        screenRenderingShader.setUniform("position_buffer", positionBuffer.current);
-        screenRenderingShader.setUniform("velocity_buffer", velocityBuffer.current);
+        screenShader.use();
+        screenShader.setUniform("position_buffer", positionBuffer.current);
+        screenShader.setUniform("velocity_buffer", velocityBuffer.current);
+        screenShader.setUniform("epoch_counter", epoch_counter);
         screenBuffer.update(P);
 
         // View density buffer
@@ -262,7 +264,7 @@ int main() {
 //============================================================
 
 void window_setup() {
-    std::cout << "Setting up glfw window..." << std::endl;
+    fprintf(stdout, "Setting up glfw window...\n");
 
     // Setup window
     glfwSetErrorCallback([](int error, const char* description) {
@@ -364,10 +366,11 @@ void window_setup() {
 //=====================================================
 
 void shader_setup() {
-    screenRenderingShader.create();
-    screenRenderingShader.compile(GL_VERTEX_SHADER, screen_VertexShaderSource);
-    screenRenderingShader.compile(GL_FRAGMENT_SHADER, screen_FragmentShaderSource);
-    screenRenderingShader.link();
+    fprintf(stdout, "Compiling shaders...\n");
+    screenShader.create();
+    screenShader.compile(GL_VERTEX_SHADER, screen_VertexShaderSource);
+    screenShader.compile(GL_FRAGMENT_SHADER, screen_FragmentShaderSource);
+    screenShader.link();
 
     densityShader.create();
     densityShader.compile(GL_VERTEX_SHADER, density_VertexShaderSource);
@@ -399,7 +402,7 @@ void shader_setup() {
 
 void updateShaderWindowShape(int new_width, int new_height) {
     float window_shape[2] = {(float)new_width, (float)new_height};
-    screenRenderingShader.setUniform("window_shape", 2, window_shape);
+    screenShader.setUniform("window_shape", 2, window_shape);
     densityShader.setUniform("window_shape", 2, window_shape);
     positionShader.setUniform("window_shape", 2, window_shape);
     velocityShader.setUniform("window_shape", 2, window_shape);
@@ -411,7 +414,7 @@ void updateShaderWindowShape(int new_width, int new_height) {
 
 void updateShaderBufferShape(int new_width, int new_height) {
     float buffer_shape[2] = {(float)new_width, (float)new_height};
-    screenRenderingShader.setUniform("buffer_size", 2, buffer_shape);
+    screenShader.setUniform("buffer_size", 2, buffer_shape);
     densityShader.setUniform("buffer_size", 2, buffer_shape);
     // positionShader.setUniform("buffer_size", 2, buffer_shape);
     // velocityShader.setUniform("buffer_size", 2, buffer_shape);
@@ -431,12 +434,10 @@ void updateShaderBufferShape(int new_width, int new_height) {
 
 
 void buffer_setup() {
-
+    fprintf(stdout, "Settgin up buffers...\n");
     // Setup vertex array
     int* vertices = (int*) malloc(2*P*sizeof(int));
-    for (int i = 0; i < 2*P; i++) {
-        vertices[i] = 0;
-    }
+    for (int i = 0; i < 2*P; i++) { vertices[i] = 0; }
 
     GLuint vao;
     glGenVertexArrays(1, &vao);
@@ -453,6 +454,7 @@ void buffer_setup() {
     // Calculate size of the physics buffer
     int PBwidth = ceil(sqrt(P));
     int PBheight = ceil(P/sqrt(P));
+    fprintf(stdout, "%d points\n", P);
     fprintf(stdout, "Physics framebuffer shape: %d x %d\n", PBwidth, PBheight);
     updateShaderBufferShape(PBwidth, PBheight);
 
@@ -473,9 +475,8 @@ void buffer_setup() {
 
     // Texture 1 - Position buffer 1
     float margin = glm::min(width, height)*0.1;
-    // float box_edge = glm::min(width,height)*0.2;
     float noise_seed = 10*glfwGetTime() + glm::linearRand<float>(0, 1);
-    // char* positions = (char*) malloc(2*P*sizeof(float));
+    fprintf(stdout, "Generating starting positions...\n");
     int N = PBwidth*PBheight*2;
     float* positions = new float[N];
     for (int i = 0; i < N; i += 2) {
@@ -495,6 +496,7 @@ void buffer_setup() {
         positions[i+1] = position.y;
     }
 
+    fprintf(stdout, "Allocating buffers...\n");
     positionBuffer.allocate(current, positionBufferIndex1, PBwidth, PBheight, (const char*) positions);
     delete[] positions;
 

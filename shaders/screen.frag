@@ -67,9 +67,8 @@ vec3 inferno(float t) {
 
 }
 
-float random (vec2 seed) { // Random from 0 to 1
-    float a = dot(seed.xy,vec2(0.890,0.870));
-    return fract(sin(a)*43758.5453123);
+float random (float seed) { // Random from 0 to 1
+    return fract(sin(seed * 0.890) * 43758.5453123);
 }
 
 const vec4 color1 = vec4(0.067f, 0.455f, 0.729f, 1.0f);
@@ -84,7 +83,7 @@ void main() {
     float norm_density = density*0.80;
     // float norm_density = density*clamp(velocity,0.0,1.0)*0.8;
     norm_density = norm_density * norm_density;
-    if (norm_density > random(vec2(3,2) + VertexID + epoch_counter)) {
+    if (norm_density > random(3 + VertexID + epoch_counter)) {
         discard;
     }
 

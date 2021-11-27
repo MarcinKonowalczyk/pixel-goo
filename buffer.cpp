@@ -11,15 +11,22 @@ void Buffer::allocate(const Bwhich which, const PBindex index, const int width, 
 
     glActiveTexture(GL_TEXTURE0 + index);
     glBindTexture(GL_TEXTURE_2D, textures[index]);
-
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, this->minmag_filter);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, this->minmag_filter);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, this->wrap_st);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, this->wrap_st);
 
+    // Write data to texture
     glTexImage2D(GL_TEXTURE_2D, 0, this->dim.iformat, width, height, 0, this->dim.format, GL_FLOAT, data);
-
+    
+    // Bind framebuffer
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[index]);
+
+    // Clear buffer to 0
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    // Attach the framebuffer to the texture
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textures[index], 0);
 
     if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {

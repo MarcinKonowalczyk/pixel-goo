@@ -11,6 +11,12 @@ uniform vec2 window_shape;
 uniform sampler2D position_buffer;
 uniform sampler2D velocity_buffer;
 
+// uniform int epoch_counter;
+
+// float random_float (float seed) { // random_vec2 from -1 to +1
+//     return fract(sin(seed * 0.890)*43758.5453123);
+// }
+
 void main() {
     ivec2 buffer_position = ivec2(gl_FragCoord.xy);
     vec2 position = vec2(texelFetch(position_buffer, buffer_position, 0)); // previous position
